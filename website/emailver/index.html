@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You're verified — Chyve</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --plum: #2C1A2E;
+    --plum-deep: #1E1122;
+    --gold: #C9A24B;
+    --leaf: #5C7A4E;
+    --leaf-light: #7C9A6C;
+    --cream: #F4EEE2;
+    --cream-dim: #C9BFAE;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
+  body {
+    background: radial-gradient(ellipse at top left, #3A2340 0%, var(--plum) 45%, var(--plum-deep) 100%);
+    font-family: 'Inter', sans-serif;
+    color: var(--cream);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    padding: 24px;
+  }
+
+  /* Vine decoration, top left */
+  .vine {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+  .vine--top {
+    top: -40px;
+    left: -60px;
+    width: 340px;
+    transform: rotate(8deg);
+  }
+  .vine--bottom {
+    bottom: -60px;
+    right: -70px;
+    width: 380px;
+    transform: rotate(-8deg) scaleX(-1);
+  }
+
+  .card {
+    position: relative;
+    z-index: 2;
+    max-width: 460px;
+    width: 100%;
+    text-align: center;
+    padding: 56px 40px 44px;
+  }
+
+  .mark {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 28px;
+    position: relative;
+  }
+  .mark svg { width: 100%; height: 100%; display: block; }
+
+  .grape-cluster {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 18px;
+  }
+  .grape-cluster circle { fill: var(--gold); }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-optical-sizing: auto;
+    font-weight: 500;
+    font-size: 2.15rem;
+    line-height: 1.2;
+    margin: 0 0 14px;
+    color: var(--cream);
+    letter-spacing: -0.01em;
+  }
+
+  p.sub {
+    font-size: 1.02rem;
+    line-height: 1.6;
+    color: var(--cream-dim);
+    margin: 0 0 36px;
+    font-weight: 400;
+  }
+
+  .email-chip {
+    display: inline-block;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    color: var(--leaf-light);
+    background: rgba(92, 122, 78, 0.15);
+    border: 1px solid rgba(124, 154, 108, 0.35);
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: 36px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--gold);
+    color: var(--plum-deep);
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    padding: 15px 32px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    box-shadow: 0 8px 24px rgba(201, 162, 75, 0.25);
+  }
+
+  .btn:hover {
+    background: #DAB35C;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 28px rgba(201, 162, 75, 0.35);
+  }
+
+  .btn:active {
+    transform: translateY(0px);
+  }
+
+  .btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .footnote {
+    margin-top: 28px;
+    font-size: 0.82rem;
+    color: rgba(196, 189, 174, 0.55);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .mark svg circle.pulse {
+      animation: settle 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+    }
+    .card {
+      animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes settle {
+    from { transform: scale(0.6); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  @media (max-width: 480px) {
+    .card { padding: 44px 26px 36px; }
+    h1 { font-size: 1.7rem; }
+  }
+</style>
+</head>
+<body>
+
+  <svg class="vine vine--top" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M -10 40 C 60 20, 90 80, 60 130 S 20 220, 90 250" stroke="#5C7A4E" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="58" cy="70" r="9" fill="#7C9A6C"/>
+    <circle cx="80" cy="95" r="7" fill="#C9A24B"/>
+    <circle cx="45" cy="115" r="6" fill="#7C9A6C"/>
+    <circle cx="30" cy="160" r="8" fill="#C9A24B"/>
+    <circle cx="70" cy="180" r="6" fill="#5C7A4E"/>
+    <circle cx="55" cy="210" r="7" fill="#7C9A6C"/>
+    <circle cx="95" cy="225" r="6" fill="#C9A24B"/>
+  </svg>
+
+  <svg class="vine vine--bottom" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M -10 40 C 60 20, 90 80, 60 130 S 20 220, 90 250" stroke="#5C7A4E" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="58" cy="70" r="9" fill="#7C9A6C"/>
+    <circle cx="80" cy="95" r="7" fill="#C9A24B"/>
+    <circle cx="45" cy="115" r="6" fill="#7C9A6C"/>
+    <circle cx="30" cy="160" r="8" fill="#C9A24B"/>
+    <circle cx="70" cy="180" r="6" fill="#5C7A4E"/>
+    <circle cx="55" cy="210" r="7" fill="#7C9A6C"/>
+    <circle cx="95" cy="225" r="6" fill="#C9A24B"/>
+  </svg>
+
+  <div class="card">
+    <div class="mark">
+      <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle class="pulse" cx="28" cy="28" r="27" stroke="#7C9A6C" stroke-width="2" fill="rgba(92,122,78,0.12)"/>
+        <path d="M17 29 L24.5 36.5 L39 20" stroke="#C9A24B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+    </div>
+
+    <h1>Your email's confirmed</h1>
+    <p class="sub">You're in. Your Chyve account is active and ready — head back to pick up where you left off.</p>
+
+    <a class="btn" href="https://chyve.app/">
+      Back to Chyve
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+
+    <div class="footnote">If this wasn't you, you can ignore this page.</div>
+  </div>
+
+</body>
+</html>
