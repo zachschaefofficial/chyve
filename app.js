@@ -294,9 +294,6 @@ function parseGroups(data){
   });
   return out;
 }
-function emailKey(email){
-  return 'e_' + String(email||'').toLowerCase().replace(/[^a-z0-9]/g, '_');
-}
 async function refreshSocialIndex(){
   try{
     await waitFirestore();
@@ -362,7 +359,6 @@ async function publishPublicCard(s){
       updatedAt: Date.now()
     };
     const payload = { ['u_' + s.username]: card };
-    if(s.email) payload[emailKey(s.email)] = s.username;
     await window.editUserData(INDEX_ID, payload);
     socialIndex[s.username] = card;
   }catch(e){ console.log(e); }
@@ -907,18 +903,7 @@ function pathBackgroundDecorSVG(){
 /* =========================================================
    PAGE: LOGIN / SIGNUP
    ========================================================= */
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function findAccount(identifier){
-  const raw = (identifier || '').trim();
-  if(!raw) return null;
-  if(EMAIL_PATTERN.test(raw.toLowerCase())){
-    const email = raw.toLowerCase();
-    const username = Object.keys(users).find(id => (users[id].email || '').toLowerCase() === email);
-    return username ? { username, account: users[username] } : null;
-  }
-  return users[raw] ? { username: raw, account: users[raw] } : null;
-}
+const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{3,20}$/;
 
 function renderAuth(mode){
   const isLogin = mode==='login';
@@ -927,24 +912,15 @@ function renderAuth(mode){
     <div class="auth-card">
       <button class="auth-back" onclick="goTo('landing')">← Back</button>
       <div class="brand">Chyve</div>
-      <p class="auth-sub">${isLogin ? 'Welcome back — log in with your username or email.' : 'Create an account with a username, email, and password.'}</p>
+      <p class="auth-sub">${isLogin ? 'Welcome back — log in with your username and password.' : 'Create an account with a username and password.'}</p>
       ${window.__authError ? `<div class="auth-error">${window.__authError}</div>` : ''}
       ${window.__authStatus ? `<div class="auth-error" style="border-color:rgba(126,209,160,0.65);color:var(--vine-light);background:rgba(79,169,124,0.12);">${window.__authStatus}</div>` : ''}
       ${window.__authBusy ? `<div class="auth-error" style="border-color:rgba(126,209,160,0.35);color:var(--vine-light);background:rgba(79,169,124,0.12);">Reaching the Chyve…</div>` : ''}
       <form onsubmit="return handleAuthSubmit(event,'${mode}')">
-        ${isLogin ? `
-        <div class="field">
-          <label for="auth-id">Username or email</label>
-          <input id="auth-id" type="text" autocomplete="username" placeholder="username or you@example.com" required>
-        </div>` : `
         <div class="field">
           <label for="auth-username">Username</label>
-          <input id="auth-username" type="text" autocomplete="username" required>
+          <input id="auth-username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
         </div>
-        <div class="field">
-          <label for="auth-email">Email</label>
-          <input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" required>
-        </div>`}
         <div class="field">
           <label for="auth-password">Password</label>
           <input id="auth-password" type="password" autocomplete="${isLogin?'current-password':'new-password'}" placeholder="••••••••" required>
@@ -966,63 +942,69 @@ function handleAuthSubmit(e, mode){
   e.preventDefault();
   window.__authError = '';
   window.__authStatus = '';
+  if(window.__authBusy) return false;
   const isLogin = mode==='login';
+  const username = document.getElementById('auth-username').value.trim();
   const password = document.getElementById('auth-password').value;
 
-  if(isLogin){
-    const identifier = document.getElementById('auth-id').value.trim();
-    const found = findAccount(identifier);
-    if(found && found.account.password===password){
-      currentUser = found.username;
-    } else {
-      window.__authBusy = true;
-      window.__authError = '';
-      render();
-      loginFromCloud(identifier, password);
-      return false;
-    }
-  } else {
-    const username = document.getElementById('auth-username').value.trim();
-    const email = document.getElementById('auth-email').value.trim().toLowerCase();
-    if(username.length<3){ window.__authError='Username must be at least 3 characters.'; render(); return false; }
-    if(username.includes('@')){ window.__authError='Username cannot contain @.'; render(); return false; }
-    if(!EMAIL_PATTERN.test(email)){ window.__authError='Enter a valid email address.'; render(); return false; }
+  if(!isLogin){
+    if(!USERNAME_PATTERN.test(username)){ window.__authError='Username must be 3–20 characters: letters, numbers, dots, dashes, or underscores.'; render(); return false; }
     if(password.length<4){ window.__authError='Password must be at least 4 characters.'; render(); return false; }
-    if(users[username]){ window.__authError='That username is already taken.'; render(); return false; }
-    if(Object.values(users).some(u => (u.email || '').toLowerCase() === email)){
-      window.__authError='An account with that email already exists.'; render(); return false;
-    }
-
-    window.__authBusy = true;
-    window.__authError = '';
-    window.__authStatus = '';
-    render();
-    console.log('Sending verification email to:', email);
-    try{
-    sendVerificationEmail(email)
-      .then(() => {
-        console.log('Verification email sent to:', email);
-        window.__authBusy = false;
-        window.__authStatus = 'Link sent — check your email to finish signing in.';
-        window.__authError = '';
-        render();
-      })
-      .catch((error) => {
-        console.error('Verification email error:', error);
-        window.__authBusy = false;
-        window.__authStatus = '';
-        window.__authError = 'Could not send the verification link. Please try again.';
-        render();
-      });
-    }catch(e){
-      console.log("Error sending verification email:", e);
-    }
-    return false;
   }
-  screen='app'; appView='recipe'; activeDishId=null; dishStage='overview';
+
+  window.__authBusy = true;
+  render();
+  if(isLogin) loginFromCloud(username, password);
+  else signUpToCloud(username, password);
+  return false;
+}
+
+function enterApp(){
+  window.__authBusy = false;
+  window.__authError = '';
+  screen = 'app'; appView = 'recipe'; activeDishId = null; dishStage = 'overview';
   persistLocal();
   render();
-  return false;
+}
+
+async function signUpToCloud(username, password){
+  try{
+    await waitFirestore();
+    await refreshSocialIndex();
+    const lower = username.toLowerCase();
+    if(Object.keys(socialIndex).some(n => n.toLowerCase() === lower)){
+      window.__authError = 'That username is already taken.';
+      window.__authBusy = false;
+      render();
+      return;
+    }
+    const res = await window.createUser(username, password, {
+      xp: 0,
+      streak: 0,
+      completed: [],
+      completionDates: [],
+      badges: [],
+      currentGroup: 0,
+      checks: {},
+      visitedLearn: false,
+      weeklyXp: 0,
+      weekId: currentWeekId(),
+      photo: '',
+      bio: '',
+      groups: [],
+      displayName: username
+    });
+    users[username] = { ...res.data, username };
+    currentUser = username;
+    ensureWeek(users[username]);
+    publishPublicCard(users[username]);
+    enterApp();
+  }catch(err){
+    console.error('Sign-up error:', err);
+    window.__authError = (err && err.code === 'username-taken') ? 'That username is already taken.' : 'Could not create your account. Please try again.';
+    window.__authBusy = false;
+    render();
+  }
 }
  
 function goTo(where){
@@ -1052,14 +1034,14 @@ function logout(){
 }
 
 function googleUsernameFromUser(gUser){
-  const email = String((gUser && gUser.email) || '');
-  const fromEmail = email.split('@')[0] || '';
-  const fromName = String((gUser && gUser.displayName) || '');
-  let base = (fromName || fromEmail || 'cook').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 18);
-  if(base.length < 3) base = ('cook' + String((gUser && gUser.uid) || 'user').slice(0, 6)).toLowerCase();
+  const uid = String((gUser && gUser.uid) || '');
+  let base = String((gUser && gUser.displayName) || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 18);
+  if(base.length < 3) base = ('cook' + (uid || 'user').slice(0, 6)).toLowerCase();
+  const taken = n => Object.keys(socialIndex).some(k => k.toLowerCase() === n && socialIndex[k].uid !== uid)
+    || (users[n] && users[n].uid !== uid);
   let username = base;
   let n = 2;
-  while(users[username] && users[username].uid !== (gUser && gUser.uid)){
+  while(taken(username)){
     username = (base.slice(0, 16) + n).slice(0, 20);
     n += 1;
   }
@@ -1068,55 +1050,41 @@ function googleUsernameFromUser(gUser){
 
 async function enterWithGoogleUser(gUser){
   await waitFirestore();
-  let wrap = null;
-  try{ wrap = await window.getUserData(gUser.uid); }catch(e){}
-  let data = wrap && wrap.data;
+  let data = null;
+  try{
+    const wrap = await window.getUserData(gUser.uid);
+    data = wrap && wrap.data;
+  }catch(e){}
+  let isNew = false;
   if(!data || !data.username){
+    // First Google sign-in: pick a free username and create the profile.
+    isNew = true;
     await refreshSocialIndex();
-    let username = googleUsernameFromUser(gUser);
-    try{
-      const idx = await window.getUserData(INDEX_ID);
-      const idxData = (idx && idx.data) || {};
-      const existingName = gUser.email ? idxData[emailKey(gUser.email)] : '';
-      if(typeof existingName === 'string' && existingName){
-        username = existingName;
-        const card = socialIndex[username];
-        if(card && card.uid){
-          const existing = await window.getUserData(card.uid);
-          if(existing && existing.data) data = existing.data;
-        }
-      }
-    }catch(e){}
-    if(!data || !data.username){
-      data = {
-        username,
-        email: (gUser.email || '').toLowerCase(),
-        password: '',
-        xp: 0,
-        streak: 0,
-        completed: [],
-        completionDates: [],
-        badges: [],
-        currentGroup: 0,
-        checks: {},
-        visitedLearn: false,
-        uid: gUser.uid,
-        weeklyXp: 0,
-        weekId: currentWeekId(),
-        photo: gUser.photoURL || '',
-        bio: '',
-        groups: [],
-        displayName: gUser.displayName || username,
-        google: true
-      };
-      await window.editUserData(gUser.uid, data);
-    }
+    const username = googleUsernameFromUser(gUser);
+    data = {
+      username,
+      xp: 0,
+      streak: 0,
+      completed: [],
+      completionDates: [],
+      badges: [],
+      currentGroup: 0,
+      checks: {},
+      visitedLearn: false,
+      uid: gUser.uid,
+      weeklyXp: 0,
+      weekId: currentWeekId(),
+      photo: gUser.photoURL || '',
+      bio: '',
+      groups: [],
+      displayName: gUser.displayName || username,
+      google: true
+    };
+    await window.editUserData(gUser.uid, data);
   }
   const username = data.username;
   users[username] = {
     username,
-    email: data.email || (gUser.email || '').toLowerCase(),
-    password: data.password || '',
     xp: data.xp || 0,
     streak: data.streak || 0,
     completed: data.completed || [],
@@ -1136,15 +1104,10 @@ async function enterWithGoogleUser(gUser){
   };
   currentUser = username;
   ensureWeek(users[username]);
-  persistLocal();
   publishPublicCard(users[username]);
-  window.__authBusy = false;
-  window.__authError = '';
-  screen = 'app';
-  appView = 'recipe';
-  activeDishId = null;
-  dishStage = 'overview';
-  render();
+  enterApp();
+  // Returning users get in after a single read; the social index loads in the background.
+  if(!isNew) refreshSocialIndex().then(() => { if(screen==='app') render(false); });
 }
 
 async function handleGoogleSignIn(){
@@ -1156,24 +1119,26 @@ async function handleGoogleSignIn(){
     return;
   }
 
+  // Open the popup first, straight from the click, so browsers don't block it.
+  const signIn = window.SignInWithGoogle();
   window.__authBusy = true;
   window.__authError = '';
   render();
   try{
-    const result = await window.SignInWithGoogle();
+    const result = await signIn;
     const user = result && result.user;
-    console.log(user);
-    console.log(result);
     if(!user) throw new Error('Google sign-in did not return a user.');
     await enterWithGoogleUser(user);
-    window.location.replace('https://chyve.app/');
-    console.log('redirecting to chyve.app after Google sign-in');
   }catch(error){
     const code = error && error.code;
     console.error('Google sign-in error:', { code, error });
     window.__authBusy = false;
     if(code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request'){
       window.__authError = '';
+    } else if(code === 'auth/popup-blocked'){
+      window.__authError = 'Your browser blocked the Google sign-in popup. Allow popups for this site and try again.';
+    } else if(code === 'auth/unauthorized-domain'){
+      window.__authError = 'This domain is not authorized for Google sign-in yet.';
     } else {
       window.__authError = 'Google sign-in did not finish. Please try again.';
     }
@@ -1183,49 +1148,36 @@ async function handleGoogleSignIn(){
 
 async function loginFromCloud(identifier, password){
   try{
-    await refreshSocialIndex();
+    await waitFirestore();
     const raw = (identifier || '').trim();
-    let username = null;
-    if(EMAIL_PATTERN.test(raw.toLowerCase())){
-      try{
-        await waitFirestore();
-        const idx = await window.getUserData(INDEX_ID);
-        const data = (idx && idx.data) || {};
-        const mapped = data[emailKey(raw)];
-        if(typeof mapped === 'string') username = mapped;
-      }catch(e){}
-    } else if(socialIndex[raw]){
-      username = raw;
+    let uid = window.pwUid(raw);
+    let res = await window.verifyLogin(uid, password);
+    if(!res.ok && res.reason === 'not-found'){
+      // Older accounts (and Google accounts) live under a Firebase uid; find them via the index.
+      await refreshSocialIndex();
+      const key = Object.keys(socialIndex).find(n => n.toLowerCase() === raw.toLowerCase());
+      const card = key && socialIndex[key];
+      if(card && card.uid && card.uid !== uid){
+        uid = card.uid;
+        res = await window.verifyLogin(uid, password);
+      }
     }
-    if(!username){
-      window.__authError = 'Incorrect username/email or password.';
+    if(!res.ok){
+      window.__authError = res.reason === 'google-only'
+        ? 'That account uses Google sign-in. Use the Google button instead.'
+        : 'Incorrect username or password.';
       window.__authBusy = false;
       render();
       return;
     }
-    const card = socialIndex[username] || {};
-    if(!card.uid){
-      window.__authError = 'Could not reach that cook\'s profile yet.';
-      window.__authBusy = false;
-      render();
-      return;
-    }
-    const res = await window.getUserData(card.uid);
-    const data = res && res.data;
-    if(!data || data.password !== password){
-      window.__authError = 'Incorrect username/email or password.';
-      window.__authBusy = false;
-      render();
-      return;
-    }
-    users[username] = { ...data, username: data.username || username };
+    const data = res.data;
+    const username = data.username || raw;
+    users[username] = { ...data, username, uid: data.uid || uid, checks: data.checks || {} };
     currentUser = username;
-    window.__authBusy = false;
-    window.__authError = '';
-    screen = 'app'; appView = 'recipe'; activeDishId = null; dishStage = 'overview';
-    persistLocal();
-    render();
+    ensureWeek(users[username]);
+    enterApp();
   }catch(e){
+    console.error('Login error:', e);
     window.__authError = 'Could not reach the cloud. Try again.';
     window.__authBusy = false;
     render();
@@ -2668,8 +2620,8 @@ function spawnConfettiGlobal(){
     if(currentUser && users[currentUser] && users[currentUser].uid){
       return window.getUserData(users[currentUser].uid).then(res => {
         if(res && res.data){
-          const incoming = res.data;
-          users[currentUser] = { ...users[currentUser], ...incoming, password: users[currentUser].password || incoming.password };
+          const { password, passwordHash, passwordSalt, ...incoming } = res.data;
+          users[currentUser] = { ...users[currentUser], ...incoming };
           ensureWeek(users[currentUser]);
           persistLocal();
           publishPublicCard(users[currentUser]);

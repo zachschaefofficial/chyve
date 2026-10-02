@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-import { getAuth, createUserWithEmailAndPassword, sendSignInLinkToEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment, deleteField } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { GoogleGenAI } from "@google/genai";
 // TODO: Replace the following with your app's Firebase project configuration
 // See: https://support.google.com/firebase/answer/7015592
 const firebaseConfig = {
@@ -19,17 +20,63 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
 
-async function createUser(email, password, data) {
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  const user = userCredential.user;
-  const uid = user.uid;
-  const newData = {
-    ...data,
-    uid: uid
-  };
-  await setDoc(doc(db, "users", uid), newData);
-  return { uid: uid, data: newData };
+/* ---------- Username + password accounts ----------
+   No email, no Firebase Auth email/password. The account is a Firestore doc at
+   users/pw_<username>; the password is stored only as a salted PBKDF2 hash. */
+function pwUid(username) {
+  return 'pw_' + String(username || '').trim().toLowerCase();
+}
+function bytesToB64(bytes) {
+  let s = '';
+  bytes.forEach(b => { s += String.fromCharCode(b); });
+  return btoa(s);
+}
+function b64ToBytes(b64) {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+async function hashPassword(password, saltB64) {
+  const salt = saltB64 ? b64ToBytes(saltB64) : crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, key, 256);
+  return { hash: bytesToB64(new Uint8Array(bits)), salt: bytesToB64(salt) };
+}
+function stripSecrets(data) {
+  const { password, passwordHash, passwordSalt, ...safe } = data || {};
+  return safe;
+}
+async function createUser(username, password, data) {
+  const uid = pwUid(username);
+  const ref = doc(db, "users", uid);
+  const existing = await getDoc(ref);
+  if (existing.exists()) {
+    const err = new Error('That username is already taken.');
+    err.code = 'username-taken';
+    throw err;
+  }
+  const { hash, salt } = await hashPassword(password);
+  await setDoc(ref, { ...data, username: username, uid: uid, passwordHash: hash, passwordSalt: salt });
+  return { uid: uid, data: { ...data, username: username, uid: uid } };
+}
+/* Checks a password against users/<uid>. Returns { ok, reason?, data? } (data never contains secrets). */
+async function verifyLogin(uid, password) {
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return { ok: false, reason: 'not-found' };
+  const data = snap.data();
+  if (data.passwordHash && data.passwordSalt) {
+    const { hash } = await hashPassword(password, data.passwordSalt);
+    if (hash !== data.passwordHash) return { ok: false, reason: 'bad-password' };
+  } else if (data.password) {
+    // Legacy plaintext account: accept once, then upgrade to a hash and drop the plaintext.
+    if (data.password !== password) return { ok: false, reason: 'bad-password' };
+    const { hash, salt } = await hashPassword(password);
+    await setDoc(ref, { passwordHash: hash, passwordSalt: salt, password: deleteField() }, { merge: true });
+  } else {
+    return { ok: false, reason: data.google ? 'google-only' : 'bad-password' };
+  }
+  return { ok: true, data: stripSecrets(data) };
 }
 async function editUserData(uid, newData) {
   await setDoc(doc(db, "users", uid), newData, { merge: true });
@@ -85,52 +132,10 @@ async function getCompletions(dishId) {
   const data = snap.exists() ? snap.data() : null;
   return (data && data.completions) || 0;
 }
-const actionCodeSettings = {
-  // URL you want to redirect back to. The domain (www.example.com) for this
-  // URL must be in the authorized domains list in the Firebase Console.
-  url: 'https://chyve.app/emailver',
-  handleCodeInApp: true,
-  iOS: {
-    bundleId: 'com.example.ios4567'
-  },
-  android: {
-    packageName: 'com.example.android4567',
-    installApp: true,
-    minimumVersion: '12'
-  },
-  // The domain must be configured in Firebase Hosting and owned by the project.
-  linkDomain: 'chyve.app'
-};
-async function sendVerificationEmail(email){
-  const cleanEmail = (email || '').trim().toLowerCase();
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  if(!cleanEmail || !emailPattern.test(cleanEmail)){
-    throw new Error('A valid email is required before sending a verification link.');
-  }
-
-  console.log('Preparing to send verification email to:', cleanEmail);
-  try{
-  await sendSignInLinkToEmail(auth, cleanEmail, actionCodeSettings);
-  console.log("sent successfully");
-  }catch(e){
-    console.error('Error sending verification email:', e);
-  }
-  return { email: cleanEmail };
-}
+// Must be called straight from a click handler so the browser doesn't block the popup.
 async function SignInWithGoogle(){
-  try {
-    console.log('Starting Google sign-in popup...');
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    const token = credential && credential.accessToken;
-    const user = result.user;
-    console.log('Google popup completed successfully.');
-    return { user, token, credential, result };
-  } catch (error) {
-    console.error('Error during sign-in:', error && error.message ? error.message : error);
-    throw error;
-  }
+  const result = await signInWithPopup(auth, provider);
+  return { user: result.user };
 }
 // Base URL of the Chyve backend (website/server). Override by setting
 // window.CHYVE_API_URL before this script loads (e.g. in index.html).
@@ -263,6 +268,7 @@ window.listApprovedRecipes = listApprovedRecipes;
 window.incrementCompletions = incrementCompletions;
 window.getCompletions = getCompletions;
 window.SignInWithGoogle = SignInWithGoogle;
-window.sendVerificationEmail = sendVerificationEmail; 
+window.verifyLogin = verifyLogin;
+window.pwUid = pwUid;
 window.apiCheck = apiCheck;
 window.apiModerateRecipe = apiModerateRecipe;
