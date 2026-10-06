@@ -9,6 +9,7 @@ app.use(express.json({ limit: "15mb" }));
 app.use(cors());
 
 const PORT = process.env.PORT || 3000;
+const MODEL = "gemini-3.8-flash";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
@@ -169,6 +170,21 @@ The photo the author attached is the image that follows.` },
   } catch (err) {
     console.error("/api/moderate failed:", err);
     res.status(500).json({ error: "Recipe check failed" });
+  }
+});
+app.post('/api/macros', async (req, res) => {
+  const ingredients = String((req.body || {}).ingredients || '').trim();
+  if (!ingredients) return res.status(400).json({ error: 'No ingredients' });
+  const prompt = `Estimate nutrition PER SERVING using ONLY this ingredient list. If a "Yield" line is given, divide by that many servings; otherwise infer a sensible serving count from the quantities. Reply with JSON only: {"servings":n,"calories":n,"protein":n,"carbs":n,"fat":n,"saturatedFat":n,"fiber":n,"sugar":n,"sodium":n,"cholesterol":n} (grams, except calories, and sodium and cholesterol in mg).\n\n${ingredients}`;
+  try {
+    const interaction = await ai.interactions.create({
+      model: MODEL,
+      input: prompt
+    });
+    res.json({ interaction: interaction.output_text });
+  } catch (err) {
+    console.error("/api/macros failed:", err);
+    res.status(500).json({ error: "Macro estimate failed" });
   }
 });
 app.listen(PORT, () => {
