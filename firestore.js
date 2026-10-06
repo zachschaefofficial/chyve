@@ -72,15 +72,29 @@ async function getRecipeData(id){
   const docSnap = await getDoc(docRef);
   return { data: docSnap.data() };
 }
-/* Completion counts live in dishStats/{dishId}.completions.
-   Keyed by dish id, so it works for built-in dishes and community recipes. */
+/* Completion + view counts live in dishStats/{dishId} ({ completions, views }).
+   Keyed by dish id, so it works for built-in dishes and community recipes.
+   These counters are shared by everyone, so the Firestore rules must let anyone
+   (signed in or not) read dishStats, and only allow +1 increments on write. */
 async function incrementCompletions(dishId) {
   await setDoc(doc(db, "dishStats", String(dishId)), { completions: increment(1) }, { merge: true });
 }
-async function getCompletions(dishId) {
+async function incrementViews(dishId) {
+  await setDoc(doc(db, "dishStats", String(dishId)), { views: increment(1) }, { merge: true });
+}
+async function getDishStats(dishId) {
   const snap = await getDoc(doc(db, "dishStats", String(dishId)));
   const data = snap.exists() ? snap.data() : null;
-  return (data && data.completions) || 0;
+  return {
+    completions: (data && Number(data.completions)) || 0,
+    views: (data && Number(data.views)) || 0
+  };
+}
+async function getCompletions(dishId) {
+  return (await getDishStats(dishId)).completions;
+}
+async function getViews(dishId) {
+  return (await getDishStats(dishId)).views;
 }
 const actionCodeSettings = {
   // URL you want to redirect back to. The domain (www.example.com) for this
@@ -217,6 +231,51 @@ async function apiModerateRecipe(recipe, image) {
     clearTimeout(timer);
   }
 }
+/* apiEstimateMacros(ingredients)
+   ingredients: the recipe's ingredient list as text (or an array of lines). ONLY the
+   ingredients are sent to the server — no name, steps or photo — so the estimate is
+   based solely on what goes into the dish. A "Yield: 4 servings" line inside the
+   ingredients is used by the model to work out the per-serving numbers.
+   Resolves to per-serving { servings, calories, protein, carbs, fat, saturatedFat,
+   fiber, sugar, sodium, cholesterol } (grams, except calories / sodium mg / cholesterol mg).
+   Throws on failure. */
+async function apiEstimateMacros(ingredients) {
+  const text = Array.isArray(ingredients) ? ingredients.join("\n") : String(ingredients || "");
+  if (!text.trim()) throw new Error("No ingredients provided.");
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(CHYVE_API_URL + "/api/macros", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ingredients: text.trim() }),
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error("Macro request failed (" + response.status + ")");
+    const data = await response.json();
+    const r = parseCheckResult(data.interaction);
+    const num = (v) => { const n = Number(v); return isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : 0; };
+    const result = {
+      servings: Math.max(1, Math.round(Number(r.servings) || 1)),
+      calories: Math.round(num(r.calories)),
+      protein: num(r.protein),
+      carbs: num(r.carbs),
+      fat: num(r.fat),
+      saturatedFat: num(r.saturatedFat),
+      fiber: num(r.fiber),
+      sugar: num(r.sugar),
+      sodium: Math.round(num(r.sodium)),
+      cholesterol: Math.round(num(r.cholesterol))
+    };
+    if (!result.calories && !result.protein && !result.carbs && !result.fat) {
+      throw new Error("The estimate came back empty.");
+    }
+    return result;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 window.createUser = createUser;
 window.getUserData = getUserData;
 window.editUserData = editUserData;
@@ -226,7 +285,11 @@ window.editRecipeData = editRecipeData;
 window.listApprovedRecipes = listApprovedRecipes;
 window.incrementCompletions = incrementCompletions;
 window.getCompletions = getCompletions;
+window.incrementViews = incrementViews;
+window.getViews = getViews;
+window.getDishStats = getDishStats;
 window.SignInWithGoogle = SignInWithGoogle;
 window.sendVerificationEmail = sendVerificationEmail; 
 window.apiCheck = apiCheck;
 window.apiModerateRecipe = apiModerateRecipe;
+window.apiEstimateMacros = apiEstimateMacros;

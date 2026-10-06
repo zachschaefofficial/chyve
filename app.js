@@ -138,6 +138,7 @@ let recipeDraftPhoto = '';
 let completionPhoto = '';        // photo the user must attach before finishing a recipe
 let checkRunId = 0;              // id of the latest photo check, so stale results get ignored
 let checkResult = null;          // { complete, reason, error } from the last photo check
+let dishViews = {};              // { dishId: number } cached from Firebase
 let dishCompletions = {};        // { dishId: number } cached from Firebase
 let recipeDraftName = '';
 let recipeDraftIngredients = '';
@@ -616,7 +617,8 @@ function communityDishFromCloud(raw){
     steps,
     community: true,
     author: raw.author || '',
-    approved: raw.approved === true
+    approved: raw.approved === true,
+    macros: (raw.macros && typeof raw.macros === 'object') ? raw.macros : null
   };
 }
 function dishCompleted(s, id){
@@ -773,8 +775,8 @@ function heroBackdropSVG(){
       </linearGradient>
     </defs>
     <rect width="1200" height="700" fill="url(#skyGlow)"/>
-    <path d="M0 470 Q150 410 300 460 T600 450 T900 470 T1200 440 L1200 700 L0 700 Z" fill="#201D17" opacity="0.85"/>
-    <path d="M0 540 Q200 500 400 528 T800 520 T1200 538 L1200 700 L0 700 Z" fill="#2B2620" opacity="0.95"/>
+    <path d="M0 470 Q150 410 300 460 T600 450 T900 470 T1200 440 L1200 700 L0 700 Z" fill="#2F2B24" opacity="0.85"/>
+    <path d="M0 540 Q200 500 400 528 T800 520 T1200 538 L1200 700 L0 700 Z" fill="#3A352D" opacity="0.95"/>
     ${rows}
   </svg>`;
 }
@@ -1396,6 +1398,7 @@ document.addEventListener('submit', function(e){
 function openDish(id){
   completionPhoto = '';
   loadCompletions(id);
+  recordDishView(id).then(recorded => { if(recorded) loadCompletions(id); });
   activeDishId = id;
   dishStage = 'overview';
   avatarOpen = false;
@@ -1507,9 +1510,11 @@ function renderOverviewPage(dish, s){
           <span>${dish.xp} XP</span>
           <span>${ingredientsList(dish).length} ingredients</span>
           <span>${stepsList(dish).length} steps</span>
+          ${viewsText(dish.id) ? `<span>${viewsText(dish.id)}</span>` : ''}
           ${completionsText(dish.id) ? `<span>${completionsText(dish.id)}</span>` : ''}
         </div>
         ${done ? '<p class="done-note">You have cooked this before — feel free to make it again.</p>' : ''}
+        ${renderMacroCard(dish)}
         <button type="button" class="btn btn-gold" onclick="startCooking()">${done ? 'View recipe again' : 'Start cooking'} →</button>
       </div>
     </div>
@@ -1581,7 +1586,7 @@ function renderCookingPage(dish, s){
     <div style="max-width:900px;margin:0 auto;">${dishPhotoBanner(dish, true)}</div>
     <div class="cooking-header">
       <h2>${dish.name}</h2>
-      ${completionsText(dish.id) ? `<div class="steps-progress">${completionsText(dish.id)}</div>` : ''}
+      ${(viewsText(dish.id) || completionsText(dish.id)) ? `<div class="steps-progress">${[viewsText(dish.id), completionsText(dish.id)].filter(Boolean).join(' · ')}</div>` : ''}
       ${!done ? `<div class="steps-progress"><b>${checkedSteps}/${steps.length}</b> instructions checked off</div>` : ''}
     </div>
     <div class="dish-detail">
@@ -1603,6 +1608,7 @@ function renderCookingPage(dish, s){
           ${steps.map((st,i)=>checklistItem(dish.id,'steps',i,st,c.steps[i],done)).join('')}
         </ul>
       </div>
+      ${renderMacroCard(dish)}
       ${!done ? completionPhotoCard() : ''}
       <div class="complete-btn-row">
         ${done
@@ -1614,14 +1620,102 @@ function renderCookingPage(dish, s){
   `;
 }
  
+/* =========================================================
+   NUTRITION ESTIMATES
+   Macros are estimated by the server (Gemini) from the ingredient
+   list ONLY. Uploaded recipes get theirs at upload time and store
+   them on the recipe; built-in dishes have theirs saved in dishes.js.
+   Nothing is estimated when a dish is merely viewed.
+   ========================================================= */
+function waitForFn(name, timeoutMs){
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const tick = () => {
+      if(typeof window[name] === 'function') return resolve();
+      if(Date.now() - start > (timeoutMs || 8000)) return reject(new Error(name + ' not ready'));
+      setTimeout(tick, 50);
+    };
+    tick();
+  });
+}
+function dishHasRealIngredients(dish){
+  return !!dish && ingredientsList(dish).length > 0 && !/\[PLACEHOLDER\]/i.test(String(dish.ingredients || ''));
+}
+function getDishMacros(dish){
+  if(!dish) return null;
+  if(dish.macros && typeof dish.macros === 'object') return dish.macros;
+  return null;
+}
+function macroCardHTML(m){
+  const pCal = m.protein * 4, cCal = m.carbs * 4, fCal = m.fat * 9;
+  const total = (pCal + cCal + fCal) || 1;
+  const pct = v => Math.round((v / total) * 100);
+  const per = m.servings > 1 ? ' \u00b7 recipe makes ' + m.servings + ' servings' : '';
+  return `
+  <div class="macro-card">
+    <div class="macro-head"><h3>Estimated nutrition</h3><span class="macro-sub">Per serving${per}</span></div>
+    <div class="macro-main">
+      <div class="macro-tile cal"><div class="val">${m.calories}<small>kcal</small></div><div class="lbl">Calories</div></div>
+      <div class="macro-tile"><div class="val">${m.protein}<small>g</small></div><div class="lbl">Protein</div></div>
+      <div class="macro-tile"><div class="val">${m.carbs}<small>g</small></div><div class="lbl">Carbs</div></div>
+      <div class="macro-tile"><div class="val">${m.fat}<small>g</small></div><div class="lbl">Fat</div></div>
+    </div>
+    <div class="macro-split" aria-hidden="true">
+      <span class="p" style="width:${pct(pCal)}%"></span><span class="c" style="width:${pct(cCal)}%"></span><span class="f" style="width:${pct(fCal)}%"></span>
+    </div>
+    <div class="macro-legend">
+      <span><i style="background:var(--vine)"></i>Protein ${pct(pCal)}%</span>
+      <span><i style="background:var(--gold)"></i>Carbs ${pct(cCal)}%</span>
+      <span><i style="background:var(--grape-light)"></i>Fat ${pct(fCal)}%</span>
+    </div>
+    <div class="macro-more">
+      <div><span>Saturated fat</span><b>${m.saturatedFat} g</b></div>
+      <div><span>Fiber</span><b>${m.fiber} g</b></div>
+      <div><span>Sugar</span><b>${m.sugar} g</b></div>
+      <div><span>Sodium</span><b>${m.sodium} mg</b></div>
+      <div><span>Cholesterol</span><b>${m.cholesterol} mg</b></div>
+    </div>
+    <p class="macro-note">AI estimate based on the ingredient list only — real values vary with brands and portion sizes.</p>
+  </div>`;
+}
+function renderMacroCard(dish){
+  if(!dishHasRealIngredients(dish)) return '';
+  const m = getDishMacros(dish);
+  return m ? macroCardHTML(m) : '';
+}
+ 
 /* ---------- Completion photo + completion counts ---------- */
 function loadCompletions(dishId){
   if(dishId == null) return;
-  waitRecipes().then(() => window.getCompletions && window.getCompletions(String(dishId))).then(n => {
-    if(typeof n !== 'number') return;
-    dishCompletions[String(dishId)] = n;
+  const key = String(dishId);
+  // One read of dishStats/{id} gives both the shared completion and view counts.
+  waitRecipes().then(() => window.getDishStats(key)).then(stats => {
+    if(!stats) return;
+    dishCompletions[key] = stats.completions;
+    dishViews[key] = stats.views;
     render(false);
-  }).catch(() => {});
+  }).catch(e => console.error('Could not load dish stats:', e));
+}
+/* Count a view once per browser session per dish, so reopening or refreshing
+   doesn't inflate the number. Resolves true if a view was actually recorded. */
+const VIEW_SEEN_KEY = 'chyve_viewed_dishes';
+function recordDishView(dishId){
+  if(dishId == null) return Promise.resolve(false);
+  const key = String(dishId);
+  let seen = {};
+  try{ seen = JSON.parse(sessionStorage.getItem(VIEW_SEEN_KEY) || '{}') || {}; }catch(e){ seen = {}; }
+  if(seen[key]) return Promise.resolve(false);
+  seen[key] = 1;
+  try{ sessionStorage.setItem(VIEW_SEEN_KEY, JSON.stringify(seen)); }catch(e){}
+  return waitRecipes()
+    .then(() => window.incrementViews(key))
+    .then(() => true)
+    .catch(e => { console.error('Could not record view:', e); return false; });
+}
+function viewsText(dishId){
+  const n = dishViews[String(dishId)];
+  if(n == null) return '';
+  return n + ' view' + (n === 1 ? '' : 's');
 }
 function completionsText(dishId){
   const n = dishCompletions[String(dishId)];
@@ -1786,7 +1880,7 @@ function finalizeDish(dishId){
   // bump the shared completions counter in Firebase and show the new number right away
   const key = String(dish.id);
   dishCompletions[key] = (dishCompletions[key] || 0) + 1;
-  waitRecipes().then(() => window.incrementCompletions(key)).catch(e => console.error('Could not record completion:', e));
+  waitRecipes().then(() => window.incrementCompletions(key)).then(() => loadCompletions(key)).catch(e => console.error('Could not record completion:', e));
   completionPhoto = '';
  
   lastCompletion = { dish, leveledUp: newLevel>prevLevel, newLevelIdx:newLevel, newBadges };
@@ -2077,6 +2171,7 @@ function renderUpload(s){
         <div class="review-seal">Live</div>
         <h2>Your recipe is live!</h2>
         <p class="completed-sub"><b>${esc(res.name || 'Your recipe')}</b> passed our check and is now in Browse for everyone to cook.</p>
+        ${res.macros ? `<div style="text-align:left;margin-top:24px;">${macroCardHTML(res.macros)}</div>` : ''}
         <div class="completed-actions">
           <button type="button" class="btn btn-primary" onclick="switchAppView('browse')">See it in Browse</button>
           <button type="button" class="btn btn-ghost" onclick="startAnotherRecipeUpload()">Upload another recipe</button>
@@ -2229,6 +2324,11 @@ async function submitRecipeUpload(e){
   recipeUploadStage = 'checking';
   render();
 
+  // Estimate the macros at the same time as the moderation check, from the ingredients only.
+  const macrosPromise = waitForFn('apiEstimateMacros')
+    .then(() => window.apiEstimateMacros(draft.ingredients))
+    .catch(err => { console.error('Macro estimate failed:', err); return null; });
+
   // 1) Ask the AI moderator whether the recipe is appropriate.
   let verdict;
   try{
@@ -2260,6 +2360,7 @@ async function submitRecipeUpload(e){
   }
 
   // 2b) Approved: save it with approved = true so it goes live immediately.
+  const macros = await macrosPromise;
   const payload = {
     name: draft.name,
     ingredients: draft.ingredients,
@@ -2270,6 +2371,7 @@ async function submitRecipeUpload(e){
     status: 'live',
     approved: true,
     moderation: { checkedAt: Date.now(), by: 'ai' },
+    ...(macros ? { macros } : {}),
     xp: 20,
     createdAt: Date.now()
   };
@@ -2284,7 +2386,7 @@ async function submitRecipeUpload(e){
       showNotice('Your recipe "' + draft.name + '" is live!');
       return false;
     }
-    recipeUploadResult = { name: draft.name };
+    recipeUploadResult = { name: draft.name, macros: macros || null };
     recipeUploadStage = 'live';
     recipeDraftPhoto = '';
     recipeDraftName = '';

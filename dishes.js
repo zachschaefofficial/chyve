@@ -5,6 +5,7 @@ window.DISHES = [
     id: 2,
     tier: 0,
     group: 0,
+    macros: { servings: 1, calories: 470, protein: 16, carbs: 30, fat: 31, saturatedFat: 16, fiber: 2, sugar: 3, sodium: 620, cholesterol: 70 },
     name: 'Golden Grilled Cheese',
     photo: 'https://static01.nyt.com/images/2016/04/12/dining/grilledcheese-copy/grilledcheese-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '12 min',
@@ -34,6 +35,7 @@ When the cheese is about halfway melted, use a spatula to flip one slice over on
     id: 3,
     tier: 0,
     group: 0,
+    macros: { servings: 4, calories: 260, protein: 6, carbs: 35, fat: 11, saturatedFat: 2, fiber: 2, sugar: 2, sodium: 570, cholesterol: 0 },
     name: 'Garlic Bread',
     photo: 'https://static01.nyt.com/images/2015/05/20/dining/20SALAD4/20SALAD4-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '8 min',
@@ -61,6 +63,7 @@ Remove bread to a work surface, grab a garlic clove with your fingertips and rub
     id: 1,
     tier: 0,
     group: 0,
+    macros: { servings: 2, calories: 355, protein: 13, carbs: 3, fat: 32, saturatedFat: 17, fiber: 0, sugar: 0, sodium: 240, cholesterol: 430 },
     name: 'Perfect Scrambled Eggs',
     photo: 'https://static01.nyt.com/images/2021/02/24/dining/19Kenjirex-copy/merlin_183955200_c2bc0f52-9ed8-495d-a7db-217cc8a201a6-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '10 min',
@@ -92,6 +95,7 @@ Immediately add the egg mixture and cook, pushing and folding the eggs with a sp
     id: 8,
     tier: 0,
     group: 1,
+    macros: { servings: 2, calories: 775, protein: 27, carbs: 46, fat: 54, saturatedFat: 12, fiber: 4, sugar: 8, sodium: 1770, cholesterol: 65 },
     name: 'Juicy BLT',
     photo: 'https://static01.nyt.com/images/2020/08/18/dining/27Diaryrex4/27Diaryrex4-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '10 min',
@@ -140,6 +144,7 @@ Lay the bacon on the remaining slices of toast. Form sandwiches by piling the ba
     id: 7,
     tier: 0,
     group: 1,
+    macros: { servings: 4, calories: 730, protein: 25, carbs: 86, fat: 32, saturatedFat: 19, fiber: 4, sugar: 3, sodium: 970, cholesterol: 85 },
     name: 'Buttered Pasta',
     photo: 'https://static01.nyt.com/images/2020/02/05/dining/as-brown-butter-pasta-print/merlin_150298908_b992b854-cd91-4306-b1ad-5428bfad8614-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '12 min',
@@ -172,6 +177,7 @@ Serve with black pepper and more Parmesan on top.
     id: 9,
     tier: 0,
     group: 1,
+    macros: { servings: 2, calories: 340, protein: 7, carbs: 38, fat: 19, saturatedFat: 3, fiber: 6, sugar: 3, sodium: 730, cholesterol: 0 },
     name: 'Avocado Toast',
     photo: 'https://static01.nyt.com/images/2018/07/25/dining/25ausrex2/merlin_141110271_8685e17e-0470-4bab-8fc8-ff7262cc98ec-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '10 min',
@@ -209,6 +215,7 @@ Sprinkle with a little more salt, and pepper if desired. Squeeze the citrus over
     id: 4,
     tier: 0,
     group: 2,
+    macros: { servings: 4, calories: 515, protein: 16, carbs: 59, fat: 23, saturatedFat: 12, fiber: 2, sugar: 21, sodium: 590, cholesterol: 260 },
     name: 'French Toast',
     photo: 'https://static01.nyt.com/images/2017/05/03/dining/03FRENCHTOAST2/03FRENCHTOAST2-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '25 min',
@@ -258,6 +265,7 @@ Continue cooking over low heat until the second side is golden brown. Dust with 
     id: 5,
     tier: 0,
     group: 2,
+    macros: { servings: 4, calories: 460, protein: 14, carbs: 65, fat: 15, saturatedFat: 7, fiber: 2, sugar: 17, sodium: 1250, cholesterol: 120 },
     name: 'Fluffy Pancakes',
     photo: 'https://static01.nyt.com/images/2020/03/23/dining/15PANCAKEGUIDE3-WEB/15PANCAKEGUIDE3-WEB-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '20 min',
@@ -292,6 +300,7 @@ Flip pancakes after bubbles rise to surface and bottoms brown, about 2 to 4 minu
     id: 6,
     tier: 0,
     group: 2,
+    macros: { servings: 4, calories: 1150, protein: 52, carbs: 103, fat: 59, saturatedFat: 36, fiber: 4, sugar: 16, sodium: 1590, cholesterol: 175 },
     name: 'Mac and Cheese',
     photo: 'https://static01.nyt.com/images/2024/04/05/multimedia/gk-classic-mac-and-cheeserex-wqpz/gk-classic-mac-and-cheeserex-wqpz-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '30 min',
@@ -341,6 +350,7 @@ Add the cheese to the sauce, turn off the heat and stir until smooth. Add the ma
     id: 28,
     tier: 0,
     group: 3,
+    macros: { servings: 4, calories: 170, protein: 3, carbs: 15, fat: 12, saturatedFat: 7, fiber: 4, sugar: 9, sodium: 730, cholesterol: 30 },
     name: 'Tomato Soup',
     photo: 'https://static01.nyt.com/images/2023/01/23/multimedia/EK-Tomato-Soup-and-Grilled-Cheese-tlwb/EK-Tomato-Soup-and-Grilled-Cheese-tlwb-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '30 min',
@@ -373,6 +383,7 @@ Carefully purée the tomato soup using a blender until smooth and creamy, adding
     id: 29,
     tier: 0,
     group: 3,
+    macros: { servings: 4, calories: 375, protein: 35, carbs: 23, fat: 17, saturatedFat: 8, fiber: 4, sugar: 4, sodium: 550, cholesterol: 145 },
     name: 'Sheet-Pan Red Curry Chicken',
     photo: 'https://static01.nyt.com/images/2024/01/09/multimedia/AS-sheet-pan-red-curry-chicken-with-squash-kchm/AS-sheet-pan-red-curry-chicken-with-squash-kchm-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '40 min',
@@ -412,6 +423,7 @@ Roast until the chicken is cooked through and charred in spots and the squash is
     id: 30,
     tier: 0,
     group: 3,
+    macros: { servings: 4, calories: 415, protein: 11, carbs: 53, fat: 17, saturatedFat: 2, fiber: 5, sugar: 6, sodium: 600, cholesterol: 95 },
     name: 'Fried Rice',
     photo: 'https://static01.nyt.com/images/2016/04/04/dining/04COOKING-FRIEDRICE1/04COOKING-FRIEDRICE1-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '30 min',
@@ -469,6 +481,7 @@ Return vegetables to the skillet and stir to integrate. Add wine or water and co
     id: 31,
     tier: 0,
     group: 4,
+    macros: { servings: 4, calories: 375, protein: 52, carbs: 3, fat: 16, saturatedFat: 3, fiber: 1, sugar: 0, sodium: 450, cholesterol: 165 },
     name: 'Lemon-Garlic Chicken',
     photo: 'https://static01.nyt.com/images/2026/07/03/multimedia/03FD-KOREX-TK-Marinated-Grilled-Chicken-Breasts-bpqg/03FD-KOREX-TK-Marinated-Grilled-Chicken-Breasts-bpqg-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '45 min',
@@ -513,6 +526,7 @@ Set the chicken and any marinade clinging to it on the oiled grate, spreading ea
     id: 32,
     tier: 0,
     group: 4,
+    macros: { servings: 5, calories: 765, protein: 29, carbs: 82, fat: 36, saturatedFat: 18, fiber: 6, sugar: 10, sodium: 860, cholesterol: 125 },
     name: 'Spicy Bolognese',
     photo: 'https://static01.nyt.com/images/2025/01/30/multimedia/29KO-weeknight-bolognese-1-fpgl/29KO-weeknight-bolognese-1-fpgl-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '30 min',
@@ -562,6 +576,7 @@ Stir the cream into the sauced pasta, taste and season with salt and pepper. For
     id: 33,
     tier: 0,
     group: 4,
+    macros: { servings: 4, calories: 600, protein: 22, carbs: 65, fat: 27, saturatedFat: 10, fiber: 3, sugar: 3, sodium: 1280, cholesterol: 230 },
     name: 'Spaghetti Carbonara',
     photo: 'https://static01.nyt.com/images/2021/02/14/dining/carbonara-horizontal/carbonara-horizontal-superJumbo-v2.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '30 min',
@@ -610,6 +625,7 @@ Empty serving bowl of hot water. Dry it and add hot pasta mixture. Stir in chees
     id: 34,
     tier: 0,
     group: 5,
+    macros: { servings: 4, calories: 665, protein: 44, carbs: 60, fat: 28, saturatedFat: 11, fiber: 6, sugar: 8, sodium: 450, cholesterol: 180 },
     name: 'Cashew Butter Chicken',
     photo: 'https://static01.nyt.com/images/2025/02/19/multimedia/ZS-Cashew-Butter-Chicken-Korma-fgmz/ZS-Cashew-Butter-Chicken-Korma-fgmz-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '45 min',
@@ -664,6 +680,7 @@ Adjust heat to medium. Stir in the yogurt and cashew butter. When thoroughly com
     id: 35,
     tier: 0,
     group: 5,
+    macros: { servings: 5, calories: 380, protein: 32, carbs: 31, fat: 14, saturatedFat: 5, fiber: 3, sugar: 4, sodium: 1720, cholesterol: 120 },
     name: 'Chicken Noodle Soup',
     photo: 'https://static01.nyt.com/images/2023/08/10/multimedia/as-chicken-noodle-soup-jzfl/as-chicken-noodle-soup-jzfl-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '30 min',
@@ -714,6 +731,7 @@ Add the chicken and simmer just until warmed, 1 to 2 minutes. Pluck out the bay 
     id: 36,
     tier: 0,
     group: 5,
+    macros: { servings: 4, calories: 435, protein: 25, carbs: 55, fat: 12, saturatedFat: 3, fiber: 4, sugar: 6, sodium: 1110, cholesterol: 55 },
     name: 'Beef Green Bean Stir-Fry',
     photo: 'https://static01.nyt.com/images/2025/06/24/multimedia/ZI-Spicy-Cumin-Beef-and-Green-Beans-lvwf/ZI-Spicy-Cumin-Beef-and-Green-Beans-lvwf-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '45 min',
@@ -773,6 +791,7 @@ Return the beef to the pan and pour in the soy sauce mixture. Cook, stirring fre
     id: 10,
     tier: 1,
     group: 0,
+    macros: { servings: 7, calories: 340, protein: 20, carbs: 21, fat: 19, saturatedFat: 7, fiber: 4, sugar: 8, sodium: 520, cholesterol: 60 },
     name: 'Stuffed Peppers',
     photo: 'https://static01.nyt.com/images/2020/04/20/dining/lh-stuffed-peppers/lh-stuffed-peppers-superJumbo-v2.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '1 hour',
@@ -847,6 +866,7 @@ Sprinkle the mozzarella evenly onto the peppers and bake another 10 to 15 minute
     id: 11,
     tier: 1,
     group: 0,
+    macros: { servings: 4, calories: 915, protein: 62, carbs: 55, fat: 50, saturatedFat: 23, fiber: 3, sugar: 5, sodium: 1370, cholesterol: 240 },
     name: 'Coconut Curry Chicken',
     photo: 'https://static01.nyt.com/images/2021/01/06/dining/04Cookbooksrex2-curry/merlin_181749069_bac75581-7b0e-4426-8d8b-1803663440fd-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '1 hour',
@@ -905,6 +925,7 @@ If time permits, let the curry sit for at least 20 minutes before serving. This 
     id: 12,
     tier: 1,
     group: 0,
+    macros: { servings: 4, calories: 460, protein: 46, carbs: 12, fat: 23, saturatedFat: 5, fiber: 1, sugar: 4, sodium: 1080, cholesterol: 195 },
     name: 'Chicken Stir-Fry',
     photo: 'https://static01.nyt.com/images/2024/05/01/multimedia/SS-Three-Cup-Chicken-wqjc/SS-Three-Cup-Chicken-wqjc-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '30 min',
@@ -954,6 +975,7 @@ Turn off the heat, add the basil and stir to combine. Serve with white rice.
     id: 16,
     tier: 1,
     group: 1,
+    macros: { servings: 4, calories: 690, protein: 65, carbs: 11, fat: 42, saturatedFat: 20, fiber: 1, sugar: 3, sodium: 910, cholesterol: 275 },
     name: 'Marry me Chicken',
     photo: 'https://static01.nyt.com/images/2023/09/28/multimedia/28Marry-MeRex-vljg/28Marry-MeRex-vljg-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '40 min',
@@ -961,7 +983,7 @@ Turn off the heat, add the basil and stir to combine. Serve with white rice.
     xp: 35,
     desc: 'Weeknight beef tacos with a homemade-tasting seasoned filling.',
     ingredients: `
-ield:
+Yield:
 4 servings
 3 large boneless, skinless chicken breasts, or 6 chicken cutlets (about 2 ¼ pounds total), patted dry
  
@@ -1018,6 +1040,7 @@ Place the chicken back in the pan to warm through, about 4 minutes. Remove from 
     id: 17,
     tier: 1,
     group: 1,
+    macros: { servings: 4, calories: 475, protein: 9, carbs: 22, fat: 40, saturatedFat: 25, fiber: 6, sugar: 9, sodium: 780, cholesterol: 140 },
     name: 'Lentil Tomato Soup',
     photo: 'https://static01.nyt.com/images/2024/04/26/multimedia/cg-tomato-lentil-soup-lqmh/cg-tomato-lentil-soup-lqmh-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '40 min',
@@ -1058,6 +1081,7 @@ Serve right away, or blend the soup using an immersion blender until as creamy a
     id: 18,
     tier: 1,
     group: 1,
+    macros: { servings: 4, calories: 585, protein: 27, carbs: 79, fat: 21, saturatedFat: 2, fiber: 7, sugar: 13, sodium: 880, cholesterol: 0 },
     name: 'Lemon-Miso Tofu With Broccoli',
     photo: 'https://static01.nyt.com/images/2025/06/06/multimedia/hm-lemon-miso-tofu-mqjh/hm-lemon-miso-tofu-mqjh-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '45 min',
@@ -1126,9 +1150,10 @@ Add the tofu and broccoli to the lemon-miso sauce and toss to coat. Scatter with
     id: 13,
     tier: 1,
     group: 2,
+    macros: { servings: 4, calories: 685, protein: 45, carbs: 60, fat: 30, saturatedFat: 6, fiber: 7, sugar: 11, sodium: 1040, cholesterol: 135 },
     name: 'Chicken Fajitas',
     photo: 'https://static01.nyt.com/images/2019/04/03/dining/as-sheet-pan-chicken-fajitas-2/merlin_150866643_6eb4a6b5-a422-4a8a-bc8b-3922cb2a025b-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
-    time: '45` min',
+    time: '45 min',
     cookTime: '30 min',
     xp: 35,
     desc: 'Caramelized roasted vegetables that make a simple, satisfying side.',
@@ -1179,6 +1204,7 @@ Serve chicken and vegetables with tortillas and desired toppings.
     id: 15,
     tier: 1,
     group: 2,
+    macros: { servings: 8, calories: 415, protein: 25, carbs: 24, fat: 25, saturatedFat: 8, fiber: 8, sugar: 4, sodium: 790, cholesterol: 75 },
     name: 'Classic Chili',
     photo: 'https://static01.nyt.com/images/2024/07/03/multimedia/Chilirex-zqtc/Chilirex-zqtc-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '40 min',
@@ -1235,6 +1261,7 @@ Add the beans, including their liquid, and cook, uncovered, stirring often, unti
     id: 14,
     tier: 1,
     group: 2,
+    macros: { servings: 4, calories: 515, protein: 29, carbs: 60, fat: 18, saturatedFat: 3, fiber: 5, sugar: 9, sodium: 1680, cholesterol: 90 },
     name: 'Chicken Lo Mein',
     photo: 'https://static01.nyt.com/images/2025/01/23/multimedia/kc-chicken-lo-mein-plated-lfpb/kc-chicken-lo-mein-plated-lfpb-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '40 min',
@@ -1306,6 +1333,7 @@ Serve warm and top with more scallions.
     id: 37,
     tier: 1,
     group: 3,
+    macros: { servings: 4, calories: 385, protein: 34, carbs: 0, fat: 25, saturatedFat: 6, fiber: 0, sugar: 0, sodium: 390, cholesterol: 95 },
     name: 'Pan-Seared Salmon',
     photo: 'https://static01.nyt.com/images/2024/02/13/multimedia/LH-pan-seared-salmon-lwzt/LH-pan-seared-salmon-lwzt-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '30 min',
@@ -1345,6 +1373,7 @@ Remove the fish to a platter or individual plates and rest for 5 minutes, then s
     id: 38,
     tier: 1,
     group: 3,
+    macros: { servings: 5, calories: 485, protein: 18, carbs: 46, fat: 25, saturatedFat: 6, fiber: 6, sugar: 6, sodium: 460, cholesterol: 60 },
     name: 'Fish Tacos',
     photo: 'https://static01.nyt.com/images/2020/07/09/dining/fish-tacos-horizontal/merlin_125553677_41461c04-77ba-456c-8a57-eeed2227f542-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '50 min',
@@ -1418,6 +1447,7 @@ Fill each tortilla with 3 pieces of fish, browned side up, followed by tomato sa
     id: 39,
     tier: 1,
     group: 3,
+    macros: { servings: 4, calories: 490, protein: 28, carbs: 39, fat: 21, saturatedFat: 7, fiber: 6, sugar: 7, sodium: 2040, cholesterol: 80 },
     name: 'Beef Stew',
     photo: 'https://static01.nyt.com/images/2024/10/28/multimedia/beef-stew-mlfk/beef-stew-mlfk-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '3 hours',
@@ -1473,6 +1503,7 @@ Cover and cook, skimming broth from time to time, until the beef is tender, abou
     id: 40,
     tier: 1,
     group: 4,
+    macros: { servings: 4, calories: 905, protein: 44, carbs: 70, fat: 51, saturatedFat: 24, fiber: 3, sugar: 4, sodium: 1020, cholesterol: 145 },
     name: 'Sticky Coconut Chicken and Rice',
     photo: 'https://static01.nyt.com/images/2023/01/08/dining/kc-sticky-coconut-chicken-and-rice/kc-sticky-coconut-chicken-and-rice-superJumbo-v2.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '45 min',
@@ -1528,6 +1559,7 @@ Cover and bake until all of the liquid is absorbed, rice is tender and chicken i
     id: 41,
     tier: 1,
     group: 4,
+    macros: { servings: 4, calories: 530, protein: 57, carbs: 29, fat: 19, saturatedFat: 3, fiber: 3, sugar: 1, sodium: 760, cholesterol: 210 },
     name: 'Fried Chicken Tenders',
     photo: 'https://static01.nyt.com/images/2025/07/11/multimedia/MP-Chicken-Tenders-ftlg/MP-Chicken-Tenders-ftlg-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '50 min',
@@ -1582,6 +1614,7 @@ Serve chicken tenders immediately with your favorite dipping sauce.
     id: 42,
     tier: 1,
     group: 4,
+    macros: { servings: 4, calories: 625, protein: 54, carbs: 50, fat: 25, saturatedFat: 4, fiber: 8, sugar: 9, sodium: 1120, cholesterol: 145 },
     name: 'Tacos Al Pastor',
     photo: 'https://static01.nyt.com/images/2019/06/05/dining/04Camararex2/merlin_155267136_8a0323b8-1d07-4f62-ae0b-f6dbc82d33c6-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '50 min',
@@ -1664,6 +1697,7 @@ Place everything on the table, including the toppings, and serve at once.
     id: 43,
     tier: 1,
     group: 5,
+    macros: { servings: 8, calories: 810, protein: 37, carbs: 62, fat: 47, saturatedFat: 13, fiber: 4, sugar: 33, sodium: 1630, cholesterol: 150 },
     name: 'Pulled Pork Sandwich',
     photo: 'https://static01.nyt.com/images/2017/04/03/dining/03COOKING-PULLEDPORKSANDWICH/03COOKING-PULLEDPORKSANDWICH-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '3 to 4 hours',
@@ -1753,6 +1787,7 @@ Serve pulled pork with slaw, buns and hot sauce on the side, letting people asse
     id: 44,
     tier: 1,
     group: 5,
+    macros: { servings: 8, calories: 430, protein: 30, carbs: 33, fat: 21, saturatedFat: 8, fiber: 7, sugar: 3, sodium: 1100, cholesterol: 105 },
     name: 'Birria Tacos',
     photo: 'https://static01.nyt.com/images/2021/02/05/dining/pj-birria-tacos/merlin_183102915_7bdeedac-14e5-46f9-98fa-4024b16a535e-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '4 hours',
@@ -1807,6 +1842,7 @@ To serve, set out the tortillas, onion, cilantro and lime wedges to assemble tac
     id: 45,
     tier: 1,
     group: 5,
+    macros: { servings: 4, calories: 475, protein: 22, carbs: 18, fat: 35, saturatedFat: 10, fiber: 3, sugar: 6, sodium: 910, cholesterol: 80 },
     name: 'Pork Lettuce Wraps',
     photo: 'https://static01.nyt.com/images/2025/08/17/magazine/17EATrex-GK-lettuce-wraps/17EATrex-GK-lettuce-wraps-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '45 min',
@@ -1871,6 +1907,7 @@ Set the filling next to a platter of the lettuce, a dish of hoisin and the plate
     id: 19,
     tier: 2,
     group: 0,
+    macros: { servings: 4, calories: 645, protein: 51, carbs: 26, fat: 38, saturatedFat: 16, fiber: 6, sugar: 14, sodium: 1240, cholesterol: 260 },
     name: 'Chicken Tikka Masala',
     photo: 'https://static01.nyt.com/images/2018/01/30/dining/30COOKING-CHICKEN-TIKKA-MASALA/30COOKING-CHICKEN-TIKKA-MASALA-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '50 min',
@@ -1944,6 +1981,7 @@ Divide chicken among four bowls and top with cilantro. Serve with rice or naan f
     id: 20,
     tier: 2,
     group: 0,
+    macros: { servings: 2, calories: 655, protein: 50, carbs: 11, fat: 47, saturatedFat: 20, fiber: 5, sugar: 4, sodium: 1350, cholesterol: 180 },
     name: 'Butter-Basted Steak and Asparagus',
     photo: 'https://static01.nyt.com/images/2024/05/31/multimedia/31butter-steakrex-jhlp/ek-butter-basted-steak-asparagus-jhlp-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '45 min',
@@ -1999,6 +2037,7 @@ When ready to eat, slice the steak against the grain (perpendicular to the fiber
     id: 21,
     tier: 2,
     group: 0,
+    macros: { servings: 4, calories: 600, protein: 26, carbs: 62, fat: 26, saturatedFat: 7, fiber: 3, sugar: 2, sodium: 2000, cholesterol: 75 },
     name: 'Handmade Potstickers',
     photo: 'https://static01.nyt.com/images/2016/01/25/dining/25COOKING_POTSTICKERSFAST/25COOKING_POTSTICKERSFAST-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '1 hour',
@@ -2048,65 +2087,186 @@ Uncover dumplings, return heat to medium-high and cook another minute or two, un
     id: 25,
     tier: 2,
     group: 1,
+    macros: { servings: 4, calories: 410, protein: 19, carbs: 36, fat: 22, saturatedFat: 13, fiber: 4, sugar: 10, sodium: 1160, cholesterol: 65 },
     name: 'French Onion Soup',
-    photo: '',
-    time: '75 min',
+    photo: 'https://static01.nyt.com/images/2023/01/29/multimedia/29souprex-french-wpfh/29souprex-french-wpfh-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '90 min',
     cookTime: '65 min',
     xp: 50,
     desc: 'Deeply caramelized onion soup topped with toasted bread and melted gruyère.',
     ingredients: `
-4 large onions, thinly sliced
-3 tbsp butter
-4 cups beef broth
-1 baguette, sliced
-1.5 cups grated gruyère
+Yield:
+4 to 6 servings
+3 tablespoons unsalted butter
+
+3 to 4 large red or yellow onions (about 3 pounds), peeled and thinly sliced
+
+¾ teaspoon kosher salt, plus more to taste
+
+2 quarts beef stock (8 cups)
+
+1 cup dry white wine
+
+1 tablespoon dry sherry
+
+1 tablespoon all-purpose flour
+
+½ teaspoon black pepper, plus more to taste
+
+8 to 12 (½-inch) slices French bread (from 1 loaf)
+
+1 ½ cups grated Gruyère cheese
     `,
     steps: `
-Step 1: Melt the butter in a large pot over low heat and add the onions.
- 
-Step 2: Cook, stirring often, until deeply caramelized and jammy, about 45 minutes; be patient, since this step builds most of the flavor.
- 
-Step 3: Add the broth, bring to a simmer, and cook for 15 minutes.
- 
-Step 4: Season to taste and ladle the soup into oven-safe bowls.
- 
-Step 5: Top each bowl with a slice of toasted baguette and a generous layer of gruyère.
- 
-Step 6: Broil until the cheese is bubbling and golden, 2 to 3 minutes, then serve immediately.
+Step 1
+Melt butter in a heavy Dutch oven over medium heat. Add onions and ½ teaspoon salt, stir and cover, letting onions soften for 5 minutes. Remove lid and let onions caramelize until golden brown over medium heat, stirring occasionally. Adjust heat if onions are browning too quickly. The caramelization process may take 45 to 60 minutes.
+
+Step 2
+Meanwhile, warm broth in a saucepan over low heat.
+
+Step 3
+Once onions are caramelized, add wine and sherry to the pot and allow mixture to come to boil. Stir in flour and let thicken for a minute or two.
+
+Step 4
+Slowly add warm broth, ¼ teaspoon salt and the pepper to the onion mixture and boil uncovered for 10 minutes. Add more salt and pepper to taste.
+
+Step 5
+Heat the broiler, and arrange individual ovenproof casseroles on a baking sheet. Ladle soup into casseroles, and cover top with bread slices. Sprinkle each casserole generously with Gruyère.
+
+Step 6
+Broil for a minute or two, watching carefully, until cheese melts and browns. Serve immediately.
     `
   },
   {
     id: 26,
     tier: 2,
     group: 1,
-    name: '[PLACEHOLDER — Beef Bourguignon]',
-    photo: '',
-    time: '',
+    macros: { servings: 5, calories: 385, protein: 37, carbs: 9, fat: 22, saturatedFat: 4, fiber: 1.5, sugar: 3, sodium: 420, cholesterol: 180 },
+    name: 'Oven-Roasted Chicken Shawarma',
+    photo: 'https://static01.nyt.com/images/2023/03/19/multimedia/SS-Oven-Roasted-Chicken-Shawarma-phmt/SS-Oven-Roasted-Chicken-Shawarma-phmt-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '55',
     cookTime: '',
     xp: 0,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+4 to 6 servings
+2 lemons, juiced
+
+½ cup plus 1 tablespoon olive oil
+
+6 cloves garlic, peeled, smashed and minced
+
+1 teaspoon kosher salt
+
+2 teaspoons freshly ground black pepper
+
+2 teaspoons ground cumin
+
+2 teaspoons paprika
+
+½ teaspoon turmeric
+
+A pinch ground cinnamon
+
+Crushed red pepper, to taste
+
+2 pounds boneless, skinless chicken thighs
+
+1 large red onion, peeled and quartered
+
+2 tablespoons chopped fresh parsley
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+Prepare a marinade for the chicken. Combine the lemon juice, ½ cup olive oil, garlic, salt, pepper, cumin, paprika, turmeric, cinnamon and crushed red pepper in a large bowl, then whisk to combine. Add the chicken and toss well to coat. Cover and store in refrigerator for at least 1 hour and up to 12 hours.
+
+Step 2
+When ready to cook, heat oven to 425 degrees. Use the remaining tablespoon of olive oil to grease a rimmed sheet pan. Add the quartered onion to the chicken and marinade, and toss once to combine. Remove the chicken and onion from the marinade, and place on the pan, spreading everything evenly across it.
+
+Step 3
+Put the chicken in the oven and roast until it is browned, crisp at the edges and cooked through, about 30 to 40 minutes. Remove from the oven, allow to rest 2 minutes, then slice into bits. (To make the chicken even more crisp, set a large pan over high heat, add a tablespoon of olive oil to the pan, then the sliced chicken, and sauté until everything curls tight in the heat.)
+
+Step 4
+Scatter the parsley over the top and serve with tomatoes, cucumbers, pita, white sauce, hot sauce, olives, fried eggplant, feta, rice — really anything you desire.
     `
   },
   {
     id: 27,
     tier: 2,
     group: 1,
-    name: '[PLACEHOLDER — Homemade Ramen]',
-    photo: '',
-    time: '',
+    macros: { servings: 10, calories: 450, protein: 32, carbs: 18, fat: 28, saturatedFat: 5, fiber: 3, sugar: 3, sodium: 1030, cholesterol: 175 },
+    name: 'Gumbo',
+    photo: 'https://static01.nyt.com/images/2023/10/31/multimedia/ND-Gumbo-cmvz/ND-Gumbo-cmvz-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '4 hr',
     cookTime: '',
     xp: 0,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+10 servings
+
+1 cup vegetable oil
+
+1 cup all-purpose flour
+
+12 ounces andouille sausage, thinly sliced
+
+1 tablespoon vegetable oil
+
+1 ½ pounds chicken thighs, cut into bite-size pieces
+
+Kosher salt (Diamond Crystal) and black pepper
+
+4 large celery ribs, finely diced
+
+1 large yellow onion, finely diced
+
+1 large green bell pepper, finely diced
+
+6 garlic cloves, finely chopped
+
+1 to 2 tablespoons Cajun seasoning, to taste
+
+2 bay leaves, fresh or dried
+
+1 tablespoon finely chopped fresh thyme, or 1 teaspoon dried thyme
+
+6 cups low-sodium chicken broth, plus more as needed
+
+Cayenne pepper, to taste
+
+12 ounces frozen cut okra, or fresh okra, trimmed and sliced into ½-inch rounds
+
+1 pound large peeled and deveined shrimp, tails on or off
+
+Filé powder (optional), as needed
+
+White rice and sliced scallions, for serving
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+Prepare the roux: In a large pan or Dutch oven, heat the oil over medium. Add the flour, ¼ cup at a time, whisking, so there are no lumps. Continue to whisking (or stir with a wooden spoon) as the roux first foams, then gradually turns from white to a milk chocolate hue. (It will be blond, tan and a peanut butter hue in between.) This process can take 35 minutes to 1 hour, depending on the heat source and vessel. It’s important to continue stirring and scraping down the edges of the pan so the flour doesn't burn. Reduce the heat, if necessary.
+
+Step 2
+Once the roux reaches the milk chocolate stage, remove it from the heat and let it cool to room temperature, stirring occasionally. The residual heat from the pot will get the roux to an even darker shade of brown. If not immediately using the roux, transfer it to an airtight container and store in the fridge for up to 1 week.
+
+Step 3
+Prepare the gumbo: Heat a large (5 ½-quart) Dutch oven over medium-high. Add the sausage and cook, stirring occasionally, until browned, about 5 minutes. Transfer the sausage with a slotted spoon to a plate. Add 1 tablespoon of oil to the Dutch oven, then add the chicken, seasoning it with salt (about 2 teaspoons) and pepper. Cook, stirring frequently, until it’s golden, about 10 minutes. Reduce the heat if necessary. Transfer the chicken to the plate with the sausage.
+
+Step 4
+Add the celery, onion and bell pepper. Season with salt (about 1 teaspoon) and cook, stirring, for 2 minutes. Add the roux, stirring until well combined. Reduce the heat to medium-low, being mindful not to burn the roux, and cook, stirring continuously, until the vegetables have softened, about 10 minutes. Add the garlic and cook, stirring, for 2 minutes. Stir in the Cajun seasoning (start with 1 tablespoon), bay leaves and thyme.
+
+Step 5
+Add the broth and increase the heat to high. Bring to a boil, stirring often to make sure nothing sticks to the bottom of the pot. Reduce to medium-low and gently simmer, uncovered, stirring occasionally, for 1 hour. Skim any excess oils that rise to the top.
+
+Step 6
+Return the sausage and chicken to the Dutch oven. Simmer, occasionally stirring and scraping the bottom of the pot, for 30 minutes. Taste and adjust salt, Cajun spice and cayenne, if desired. (The gumbo should have just enough heat to make you take notice, but not so much as to overwhelm all the other flavors.) If preparing the gumbo ahead, remove from the heat now (see Tip). Stir in the okra and cook for 15 minutes. If the gumbo is too thick, add a little more broth, if needed. (Be mindful that the shrimp, added next, will also release liquid).
+
+Step 7
+Stir in the shrimp and simmer until just cooked through, 8 to 10 minutes. Taste, adjust seasoning, if needed, and remove from the heat. If using filé, stir 2 to 3 teaspoons directly into the pot to reach desired thickness and seasoning; or have everyone sprinkle it on their own bowls. (Be mindful that a little goes a long way.) Serve gumbo in bowls with a side of white rice and top with scallions.
+
+
     `
   },
  
@@ -2115,72 +2275,186 @@ Step 6: Broil until the cheese is bubbling and golden, 2 to 3 minutes, then serv
     id: 22,
     tier: 2,
     group: 2,
-    name: 'Mushroom Risotto',
-    photo: '',
-    time: '45 min',
+    macros: { servings: 4, calories: 380, protein: 15, carbs: 65, fat: 5, saturatedFat: 3, fiber: 2, sugar: 4, sodium: 1100, cholesterol: 10 },
+    name: 'Mushroom Risotto With Peas',
+    photo: 'https://static01.nyt.com/images/2024/01/10/multimedia/10Risotto-gcmz/10Risotto-gcmz-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '55 min',
     cookTime: '35 min',
     xp: 50,
     desc: 'A slow, stirred risotto that turns simple ingredients into something luxurious.',
     ingredients: `
-1.5 cups arborio rice
-300g mushrooms, sliced
-5 cups warm stock
-1/2 cup grated parmesan
-1/2 cup white wine
-1 onion, diced
+Yield:
+6 servings
+6 to 7 cups chicken, vegetable or garlic broth or stock, as needed
+
+Salt and black pepper
+
+2 tablespoons extra-virgin olive oil
+
+½ cup finely chopped onion, or 2 shallots, minced
+
+¾ to 1 pound wild mushrooms, cleaned if necessary and torn or sliced into smaller pieces if thick (small wild mushrooms should be left whole, mushrooms like maitake can just be separated into small pieces)
+
+2 garlic cloves, minced
+
+2 teaspoons fresh thyme leaves or chopped sage
+
+1 ½ cups arborio or carnaroli rice
+
+½ cup dry white wine, such as pinot grigio or sauvignon blanc
+
+1 cup frozen peas, thawed (optional)
+
+2 tablespoons chopped fresh parsley
+
+½ cup grated Parmesan cheese, or a mixture of Parmesan and Pecorino Romano
     `,
     steps: `
-Step 1: Sauté the mushrooms in a splash of oil in a wide pot until golden, then set them aside.
- 
-Step 2: In the same pot, sauté the onion until translucent, then add the rice and toast for 1 to 2 minutes.
- 
-Step 3: Pour in the wine and stir until it is fully absorbed.
- 
-Step 4: Add the warm stock one ladle at a time, stirring often and waiting until each addition is absorbed before adding more, about 20 minutes total.
- 
-Step 5: Once the rice is creamy and just tender, fold in the mushrooms and parmesan.
- 
-Step 6: Serve immediately, while the risotto is still loose and creamy.
+Step 1
+Bring stock or broth to a simmer in a saucepan, with a ladle nearby. Make sure stock is well seasoned, and keep it simmering on the stove.
+
+Step 2
+Heat oil in a wide, heavy nonstick skillet or saucepan over medium heat. Add onions or shallots and cook gently until just tender, 3 to 5 minutes.
+
+Step 3
+Turn up heat and add mushrooms. Cook, stirring, until they begin to sweat, about 3 minutes, then add garlic and thyme or sage. Cook, stirring, until fragrant, about 30 seconds. Season mushrooms with salt and pepper and continue to cook over medium heat until they are soft. Taste and adjust seasoning.
+
+Step 4
+Add rice and stir until grains begin to crackle. Add wine and cook, stirring, until wine is no longer visible in pan. Stir in enough simmering stock to just cover the rice. The stock should bubble slowly. Cook, stirring often and vigorously, until stock is just about absorbed. Add another ladleful or two of stock and continue cooking, not too fast and not too slowly, stirring often and adding more stock when rice is almost dry, for 15 minutes.
+
+Step 5
+Add peas, if using, and continue adding stock and stirring for another 10 minutes. Rice should be tender all the way through but still al dente. Taste now and adjust seasoning.
+
+Step 6
+Add another ladleful or two of stock to rice. Stir in parsley and Parmesan, and remove from heat. Season with black pepper and serve right away in wide soup bowls or on plates.
     `
   },
   {
     id: 24,
     tier: 2,
     group: 2,
+    macros: { servings: 2, calories: 725, protein: 36, carbs: 116, fat: 13, saturatedFat: 3, fiber: 5, sugar: 29, sodium: 1670, cholesterol: 345 },
     name: 'Pad Thai',
-    photo: '',
-    time: '40 min',
+    photo: 'https://static01.nyt.com/images/2022/03/23/dining/17padthairex1/merlin_203116326_32624565-ffae-482d-9a55-043cf31afb0b-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '45 min',
     cookTime: '10 min',
     xp: 50,
     desc: 'A sweet, tangy, savory noodle stir-fry topped with peanuts.',
     ingredients: `
-200g flat rice noodles
-2 large eggs
-200g shrimp, peeled
-3 tbsp tamarind paste
-2 tbsp fish sauce
-2 tbsp sugar
-Bean sprouts & crushed peanuts, to serve
+Yield:
+2 to 3 servings
+
+8 ounces sen lek (dried ⅛-inch-wide flat rice noodles​) or other pad Thai noodles
+
+¼ cup minced garlic
+
+2 tablespoons minced shallot
+
+¼ cup minced Thai sweet preserved radish (optional; see Tip)
+
+10 to 12 peeled and deveined medium shrimp
+
+8 ounces superfirm (pressed) tofu, cut into bite-size cubes or rectangles (1 cup)
+
+4 large eggs, lightly beaten
+
+2 cups bean sprouts
+
+1 small bunch garlic chives or scallion greens, cut into 1-inch lengths (½ cup)
+
+3 tablespoons vegetable oil, plus more for cooking eggs
+
+Chopped peanuts, chile powder and lime wedges, for serving
+
+⅓ cup fish sauce
+
+⅓ cup tamarind liquid or concentrate
+
+⅓ cup coconut or other palm sugar or dark brown sugar
     `,
     steps: `
-Step 1: Soak the rice noodles in warm water until pliable, about 20 minutes, then drain.
- 
-Step 2: Whisk together the tamarind paste, fish sauce and sugar in a small bowl to make the sauce.
- 
-Step 3: Stir-fry the shrimp in a hot wok until just pink, then push them to one side of the pan.
- 
-Step 4: Crack the eggs into the empty side of the wok and scramble.
- 
-Step 5: Add the noodles and sauce, tossing everything together for 2 to 3 minutes until the noodles are glossy and evenly coated.
- 
-Step 6: Top with bean sprouts and crushed peanuts before serving.
+Step 1
+Prepare the noodles: Place dried noodles in a large bowl and cover with hot tap water. Let soak for 20 to 30 minutes while you prepare the remaining ingredients, allowing the water to cool, and stirring and separating the noodles occasionally with your hands. When ready, noodles will be white, limp and almost soft to the bite. (They will cook a little more later on.) Pour off all the water, fluff noodles with your hands, and set aside.
+
+Step 2
+Meanwhile, make the sauce: Combine the fish sauce, tamarind and coconut palm sugar in a small saucepan. Bring to a simmer over medium heat, stirring often, just until sugar has dissolved, 3 to 4 minutes. Set aside to cool.
+
+Step 3
+Line up the ingredients in the order they’ll be cooked: Place the garlic, shallot, radish and shrimp in a bowl, then line up the tofu, noodles, sauce, eggs, bean sprouts and chives. When ready to cook, place 1 cup of hot tap water near the stove.
+
+Step 4
+Heat 3 tablespoons of oil in a 14-inch wok, a heavy 12-inch skillet or a large Dutch oven medium-high heat until shimmering. (If using a smaller pan, cook in 2 batches.) Add the contents of the garlic bowl and stir-fry over medium heat, adjusting the flame so the ingredients are sizzling but not popping or scorching, until the shrimp are nearly pink, 2 to 3 minutes. Add the tofu and stir-fry to heat through, about 2 minutes.
+
+Step 5
+Add noodles and raise the heat as high as it goes, tossing and separating them with a wok turner, tongs or both. When noodles are sizzling, add about half the sauce and 1 tablespoon water, and stir-fry, tossing to coat and cook through.
+
+Step 6
+Taste a noodle for doneness and seasoning. If needed, add more sauce and water, and keep cooking, turning often, until noodles are softened and savory.
+
+Step 7
+Push noodles to one side of the pan, add enough oil to lightly coat the other side, and add the eggs. Use the spatula to scramble the eggs, stirring and scraping until cooked through and just dry, 1 to 2 minutes, then stir them into the noodles.
+
+Step 8
+Add the bean sprouts and chives, and stir to combine. Serve immediately, passing the peanuts, chile powder and lime wedges to adjust seasoning to taste.
     `
   },
   {
     id: 23,
     tier: 2,
     group: 2,
-    name: '[PLACEHOLDER — Coq au Vin]',
+    macros: { servings: 4, calories: 610, protein: 47, carbs: 21, fat: 37, saturatedFat: 9, fiber: 1, sugar: 3, sodium: 850, cholesterol: 175 },
+    name: 'Roasted Chicken Provençal',
+    photo: 'https://static01.nyt.com/images/2025/07/22/multimedia/22MS-FOODMANREX-lzwf/22MS-FOODMANREX-lzwf-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '75 min',
+    cookTime: '',
+    xp: 0,
+    desc: '[Placeholder recipe]',
+    ingredients: `
+Yield:
+4 servings
+4 chicken legs or 8 bone-in, skin-on chicken thighs
+
+2 teaspoons kosher salt
+
+1 teaspoon freshly ground black pepper
+
+½ to ¾ cup all-purpose flour
+
+3 tablespoons olive oil
+
+2 tablespoons herbes de Provence
+
+1 lemon, quartered
+
+8 to 10 cloves garlic, peeled
+
+4 to 6 medium-size shallots, peeled and halved
+
+⅓ cup dry vermouth
+
+4 sprigs of thyme, for serving
+    `,
+    steps: `
+Step 1
+Heat oven to 400 degrees. Season the chicken with salt and pepper. Put the flour in a shallow pan, and lightly dredge the chicken in it, shaking the pieces to remove excess flour.
+
+Step 2
+Swirl the oil in a large roasting pan, and place the floured chicken in it. Season the chicken with the herbes de Provence. Arrange the lemon, garlic cloves and shallots around the chicken, then add the vermouth to the pan.
+
+Step 3
+Put the pan in the oven, and roast for 25 to 30 minutes, then baste it with the pan juices. Continue roasting for another 25 to 30 minutes, or until the chicken is very crisp and the meat cooked through.
+
+Step 4
+Serve in the pan or on a warmed platter, garnished with the thyme.
+    `
+  },
+ 
+  // Group 3
+  {
+    id: 46,
+    tier: 2,
+    group: 3,
+    name: 'Placeholder',
     photo: '',
     time: '',
     cookTime: '',
@@ -2193,18 +2467,33 @@ Step 6: Top with bean sprouts and crushed peanuts before serving.
 [PLACEHOLDER]
     `
   },
- 
-  // Group 3
   {
-    id: 0,
+    id: 47,
     tier: 2,
     group: 3,
-    name: '[PLACEHOLDER — GROUP 3]',
+    name: 'Placeholder',
     photo: '',
     time: '',
     cookTime: '',
     xp: 0,
-    desc: '[Placeholder group]',
+    desc: '[Placeholder recipe]',
+    ingredients: `
+[PLACEHOLDER]
+    `,
+    steps: `
+[PLACEHOLDER]
+    `
+  },
+  {
+    id: 48,
+    tier: 2,
+    group: 3,
+    name: 'Placeholder',
+    photo: '',
+    time: '',
+    cookTime: '',
+    xp: 0,
+    desc: '[Placeholder recipe]',
     ingredients: `
 [PLACEHOLDER]
     `,
@@ -2215,15 +2504,49 @@ Step 6: Top with bean sprouts and crushed peanuts before serving.
  
   // Group 4
   {
-    id: 0,
+    id: 49,
     tier: 2,
     group: 4,
-    name: '[PLACEHOLDER — GROUP 4]',
+    name: 'Placeholder',
     photo: '',
     time: '',
     cookTime: '',
     xp: 0,
-    desc: '[Placeholder group]',
+    desc: '[Placeholder recipe]',
+    ingredients: `
+[PLACEHOLDER]
+    `,
+    steps: `
+[PLACEHOLDER]
+    `
+  },
+  {
+    id: 50,
+    tier: 2,
+    group: 4,
+    name: 'Placeholder',
+    photo: '',
+    time: '',
+    cookTime: '',
+    xp: 0,
+    desc: '[Placeholder recipe]',
+    ingredients: `
+[PLACEHOLDER]
+    `,
+    steps: `
+[PLACEHOLDER]
+    `
+  },
+  {
+    id: 51,
+    tier: 2,
+    group: 4,
+    name: 'Placeholder',
+    photo: '',
+    time: '',
+    cookTime: '',
+    xp: 0,
+    desc: '[Placeholder recipe]',
     ingredients: `
 [PLACEHOLDER]
     `,
@@ -2234,15 +2557,49 @@ Step 6: Top with bean sprouts and crushed peanuts before serving.
  
   // Group 5
   {
-    id: 0,
+    id: 52,
     tier: 2,
     group: 5,
-    name: '[PLACEHOLDER — GROUP 5]',
+    name: 'Placeholder',
     photo: '',
     time: '',
     cookTime: '',
     xp: 0,
-    desc: '[Placeholder group]',
+    desc: '[Placeholder recipe]',
+    ingredients: `
+[PLACEHOLDER]
+    `,
+    steps: `
+[PLACEHOLDER]
+    `
+  },
+  {
+    id: 53,
+    tier: 2,
+    group: 5,
+    name: 'Placeholder',
+    photo: '',
+    time: '',
+    cookTime: '',
+    xp: 0,
+    desc: '[Placeholder recipe]',
+    ingredients: `
+[PLACEHOLDER]
+    `,
+    steps: `
+[PLACEHOLDER]
+    `
+  },
+  {
+    id: 54,
+    tier: 2,
+    group: 5,
+    name: 'Placeholder',
+    photo: '',
+    time: '',
+    cookTime: '',
+    xp: 0,
+    desc: '[Placeholder recipe]',
     ingredients: `
 [PLACEHOLDER]
     `,
