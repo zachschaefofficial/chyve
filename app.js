@@ -1,6 +1,7 @@
 /* =========================================================
    DATA
    ========================================================= */
+  //iluaksdgj
 const LEVELS = [
   {name:'Seedling', threshold:0,   desc:'Everyday basics — eggs, toast, and simple sides'},
   {name:'Sprout',   threshold:180, desc:'Building confidence — pastas, stir-fries, and weeknight wins'},

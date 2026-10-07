@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, increment } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, sendSignInLinkToEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 // TODO: Replace the following with your app's Firebase project configuration
 // See: https://support.google.com/firebase/answer/7015592
@@ -44,9 +44,7 @@ async function createRecipe(data) {
   const newData = {
     ...data,
     id: id,
-    approved: data.approved === true,
-    views: Number(data.views) || 0,
-    completions: Number(data.completions) || 0
+    approved: data.approved === true
   };
   await setDoc(doc(db, "recipes", id), newData);
   return { id: id, data: newData };
@@ -74,22 +72,29 @@ async function getRecipeData(id){
   const docSnap = await getDoc(docRef);
   return { data: docSnap.data() };
 }
-/* View + completion counts live ON the recipe document (recipes/{id}.views and
-   recipes/{id}.completions), so they are stored with the recipe itself. Only
-   community recipes have a recipe document; the built-in path dishes do not
-   store views or completions anywhere. The Firestore rules must let a signed-in
-   user update ONLY those two fields, and only by +1. */
-async function incrementRecipeStat(recipeId, field) {
-  if (field !== "views" && field !== "completions") throw new Error("Unknown recipe stat: " + field);
-  await updateDoc(doc(db, "recipes", String(recipeId)), { [field]: increment(1) });
+/* Completion + view counts live in dishStats/{dishId} ({ completions, views }).
+   Keyed by dish id, so it works for built-in dishes and community recipes.
+   These counters are shared by everyone, so the Firestore rules must let anyone
+   (signed in or not) read dishStats, and only allow +1 increments on write. */
+async function incrementCompletions(dishId) {
+  await setDoc(doc(db, "dishStats", String(dishId)), { completions: increment(1) }, { merge: true });
 }
-async function getRecipeStats(recipeId) {
-  const snap = await getDoc(doc(db, "recipes", String(recipeId)));
+async function incrementViews(dishId) {
+  await setDoc(doc(db, "dishStats", String(dishId)), { views: increment(1) }, { merge: true });
+}
+async function getDishStats(dishId) {
+  const snap = await getDoc(doc(db, "dishStats", String(dishId)));
   const data = snap.exists() ? snap.data() : null;
   return {
-    views: (data && Number(data.views)) || 0,
-    completions: (data && Number(data.completions)) || 0
+    completions: (data && Number(data.completions)) || 0,
+    views: (data && Number(data.views)) || 0
   };
+}
+async function getCompletions(dishId) {
+  return (await getDishStats(dishId)).completions;
+}
+async function getViews(dishId) {
+  return (await getDishStats(dishId)).views;
 }
 const actionCodeSettings = {
   // URL you want to redirect back to. The domain (www.example.com) for this
@@ -139,8 +144,7 @@ async function SignInWithGoogle(){
   }
 }
 // Base URL of the Chyve backend (website/server). Override by setting
-// window.CHYVE_API_URL before this script loads (e.g. in index.html).
-const CHYVE_API_URL = window.CHYVE_API_URL || "http://localhost:3000";
+const CHYVE_API_URL = "https://chyvedomain.vercel.app" || "http://localhost:3000";
 
 // The model returns its JSON as text, sometimes wrapped in ```json fences.
 function parseCheckResult(raw) {
@@ -171,7 +175,7 @@ async function apiCheck(image, recipe) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60000);
   try {
-    const response = await fetch("http://localhost:3000/api/check", {
+    const response = await fetch(CHYVE_API_URL + "/api/check", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ recipe: recipeText, photo: photo }),
@@ -217,6 +221,7 @@ async function apiModerateRecipe(recipe, image) {
     if (!response.ok) throw new Error("Moderation request failed (" + response.status + ")");
     const data = await response.json();
     const result = parseCheckResult(data.interaction);
+    console.log(result)
     return {
       appropriate: result.appropriate === true || result.appropriate === "true",
       category: String(result.category || ""),
@@ -263,6 +268,7 @@ async function apiEstimateMacros(ingredients) {
       sodium: Math.round(num(r.sodium)),
       cholesterol: Math.round(num(r.cholesterol))
     };
+    console.log(result)
     if (!result.calories && !result.protein && !result.carbs && !result.fat) {
       throw new Error("The estimate came back empty.");
     }
@@ -278,8 +284,11 @@ window.createRecipe = createRecipe;
 window.getRecipeData = getRecipeData;
 window.editRecipeData = editRecipeData;
 window.listApprovedRecipes = listApprovedRecipes;
-window.incrementRecipeStat = incrementRecipeStat;
-window.getRecipeStats = getRecipeStats;
+window.incrementCompletions = incrementCompletions;
+window.getCompletions = getCompletions;
+window.incrementViews = incrementViews;
+window.getViews = getViews;
+window.getDishStats = getDishStats;
 window.SignInWithGoogle = SignInWithGoogle;
 window.sendVerificationEmail = sendVerificationEmail; 
 window.apiCheck = apiCheck;
