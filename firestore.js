@@ -292,7 +292,7 @@ async function apiEstimateMacros(ingredients) {
 }
 const controller = new AbortController();
 const timer = setTimeout(() => controller.abort(), 120000);
-const response = await fetch(CHYVE_API_URL + "/api/check", {
+const response = await fetch(CHYVE_API_URL + "/api/test", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
