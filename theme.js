@@ -12,7 +12,7 @@
     violet: { name:'Violet', light:'#7351D9', dark:'#A38BFF' },
     rose:   { name:'Rose',   light:'#D1427A', dark:'#FF7FAE' },
     orange: { name:'Orange', light:'#D9691F', dark:'#FF9A55' },
-    mono:   { name:'Mono',   light:'#1F1E1B', dark:'#ECEBE6' }
+    mono:   { name:'Mono',   light:'#26251E', dark:'#EDECE6' }
   };
   var DEFAULT = { mode:'light', accent:'green' };
   var MODES = ['light', 'dark', 'auto'];
@@ -40,7 +40,7 @@
     root.style.setProperty('--accent', ACCENTS[t.accent][mode]);
     root.style.setProperty('--on-accent', mode === 'dark' ? '#121211' : '#FFFFFF');
     var meta = document.querySelector('meta[name="theme-color"]');
-    if(meta) meta.setAttribute('content', mode === 'dark' ? '#121211' : '#FBFAF8');
+    if(meta) meta.setAttribute('content', mode === 'dark' ? '#14130E' : '#FAFAF7');
     try{ localStorage.setItem(KEY, JSON.stringify(t)); }catch(e){}
     return t;
   }

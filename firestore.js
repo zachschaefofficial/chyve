@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, increment } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, sendSignInLinkToEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 // TODO: Replace the following with your app's Firebase project configuration
 // See: https://support.google.com/firebase/answer/7015592
@@ -44,7 +44,9 @@ async function createRecipe(data) {
   const newData = {
     ...data,
     id: id,
-    approved: data.approved === true
+    approved: data.approved === true,
+    views: Number(data.views) || 0,
+    completions: Number(data.completions) || 0
   };
   await setDoc(doc(db, "recipes", id), newData);
   return { id: id, data: newData };
@@ -72,29 +74,22 @@ async function getRecipeData(id){
   const docSnap = await getDoc(docRef);
   return { data: docSnap.data() };
 }
-/* Completion + view counts live in dishStats/{dishId} ({ completions, views }).
-   Keyed by dish id, so it works for built-in dishes and community recipes.
-   These counters are shared by everyone, so the Firestore rules must let anyone
-   (signed in or not) read dishStats, and only allow +1 increments on write. */
-async function incrementCompletions(dishId) {
-  await setDoc(doc(db, "dishStats", String(dishId)), { completions: increment(1) }, { merge: true });
+/* View + completion counts live ON the recipe document (recipes/{id}.views and
+   recipes/{id}.completions), so they are stored with the recipe itself. Only
+   community recipes have a recipe document; the built-in path dishes do not
+   store views or completions anywhere. The Firestore rules must let a signed-in
+   user update ONLY those two fields, and only by +1. */
+async function incrementRecipeStat(recipeId, field) {
+  if (field !== "views" && field !== "completions") throw new Error("Unknown recipe stat: " + field);
+  await updateDoc(doc(db, "recipes", String(recipeId)), { [field]: increment(1) });
 }
-async function incrementViews(dishId) {
-  await setDoc(doc(db, "dishStats", String(dishId)), { views: increment(1) }, { merge: true });
-}
-async function getDishStats(dishId) {
-  const snap = await getDoc(doc(db, "dishStats", String(dishId)));
+async function getRecipeStats(recipeId) {
+  const snap = await getDoc(doc(db, "recipes", String(recipeId)));
   const data = snap.exists() ? snap.data() : null;
   return {
-    completions: (data && Number(data.completions)) || 0,
-    views: (data && Number(data.views)) || 0
+    views: (data && Number(data.views)) || 0,
+    completions: (data && Number(data.completions)) || 0
   };
-}
-async function getCompletions(dishId) {
-  return (await getDishStats(dishId)).completions;
-}
-async function getViews(dishId) {
-  return (await getDishStats(dishId)).views;
 }
 const actionCodeSettings = {
   // URL you want to redirect back to. The domain (www.example.com) for this
@@ -283,11 +278,8 @@ window.createRecipe = createRecipe;
 window.getRecipeData = getRecipeData;
 window.editRecipeData = editRecipeData;
 window.listApprovedRecipes = listApprovedRecipes;
-window.incrementCompletions = incrementCompletions;
-window.getCompletions = getCompletions;
-window.incrementViews = incrementViews;
-window.getViews = getViews;
-window.getDishStats = getDishStats;
+window.incrementRecipeStat = incrementRecipeStat;
+window.getRecipeStats = getRecipeStats;
 window.SignInWithGoogle = SignInWithGoogle;
 window.sendVerificationEmail = sendVerificationEmail; 
 window.apiCheck = apiCheck;

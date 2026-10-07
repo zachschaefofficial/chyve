@@ -138,11 +138,13 @@ let recipeDraftPhoto = '';
 let completionPhoto = '';        // photo the user must attach before finishing a recipe
 let checkRunId = 0;              // id of the latest photo check, so stale results get ignored
 let checkResult = null;          // { complete, reason, error } from the last photo check
-let dishViews = {};              // { dishId: number } cached from Firebase
-let dishCompletions = {};        // { dishId: number } cached from Firebase
 let recipeDraftName = '';
 let recipeDraftIngredients = '';
 let recipeDraftInstructions = '';
+let recipeDraftTime = '';
+let recipeDraftServings = '4';
+let recipeDraftMacros = { calories:'', protein:'', carbs:'', fat:'', saturatedFat:'', fiber:'', sugar:'', sodium:'', cholesterol:'' };
+let recipeMacroState = '';      // '' | 'loading' while the "Estimate macros" button is working
 let recipeOutForReview = false;
 let recipeUploadStage = 'form';   // form | checking | live | rejected | error
 let recipeUploadResult = null;    // { reason, category, name } shown on the live / rejected / error pages
@@ -583,6 +585,7 @@ function render(scrollTop){
   const token = viewToken();
   const navigated = token !== lastViewToken;
   lastViewToken = token;
+  if(navigated) syncHistory();
   viewShouldAnimate = navigated;
   if(scrollTop === undefined) scrollTop = navigated;
   const root = document.getElementById('root');
@@ -593,14 +596,114 @@ function render(scrollTop){
   else if(screen==='plans') root.innerHTML = renderPlans();
   if(scrollTop) window.scrollTo(0,0);
 }
+/* =========================================================
+   BROWSER HISTORY — makes the browser's Back / Forward buttons move between
+   the app's pages. Whenever render() lands on a new page it records a small
+   snapshot of the view (screen, tab, open recipe, profile…) with
+   history.pushState, and the popstate handler puts that snapshot back.
+   ========================================================= */
+let restoringFromHistory = false;
+let historyStarted = false;
+const TRANSIENT_STAGES = ['checking', 'denied', 'completed'];
+function navSnapshot(){
+  return {
+    chyve: 1,
+    screen: screen,
+    appView: appView,
+    activeDishId: activeDishId,
+    dishStage: dishStage === 'cooking' ? 'cooking' : 'overview',
+    viewingUser: viewingUser,
+    activeGroupId: activeGroupId,
+    profileOrigin: profileOrigin
+  };
+}
+function syncHistory(){
+  if(restoringFromHistory || !window.history || !history.pushState) return;
+  try{
+    const snap = navSnapshot();
+    if(!historyStarted){ history.replaceState(snap, ''); historyStarted = true; return; }
+    // The photo-check and "recipe completed" pages share the cooking page's history entry.
+    if(screen === 'app' && TRANSIENT_STAGES.indexOf(dishStage) > -1) return;
+    const prev = history.state;
+    if(prev && JSON.stringify(prev) === JSON.stringify(snap)) return;
+    // Logging in replaces the login / sign-up entry instead of stacking the app on top of it.
+    if(prev && screen === 'app' && (prev.screen === 'login' || prev.screen === 'signup')){
+      history.replaceState(snap, '');
+      return;
+    }
+    history.pushState(snap, '');
+  }catch(e){}
+}
+function applyNavSnapshot(st){
+  screen = st.screen || 'landing';
+  appView = st.appView || 'recipe';
+  activeDishId = st.activeDishId || null;
+  dishStage = st.dishStage === 'cooking' ? 'cooking' : 'overview';
+  viewingUser = st.viewingUser || null;
+  activeGroupId = st.activeGroupId || null;
+  profileOrigin = st.profileOrigin || profileOrigin;
+  avatarOpen = false;
+  completionPhoto = '';
+  lastCompletion = null;
+  window.__authError = '';
+  const dish = activeDishId ? findDish(activeDishId) : null;
+  const info = (dish && dishStage === 'cooking') ? getYieldInfo(dish) : null;
+  activeYieldAmount = info ? info.amount : null;
+}
+window.addEventListener('popstate', function(e){
+  let st = e.state;
+  if(!st || !st.chyve) return;
+  if(!currentUser && st.screen === 'app'){
+    // Signed out: Back can't return to the signed-in app.
+    st = { chyve: 1, screen: 'landing' };
+    history.replaceState(st, '');
+  } else if(currentUser && st.screen !== 'app' && st.screen !== 'plans'){
+    // Signed in: Back shouldn't drop you onto the landing / login pages.
+    st = navSnapshot();
+    st.screen = 'app';
+    history.replaceState(st, '');
+  }
+  restoringFromHistory = true;
+  try{
+    applyNavSnapshot(st);
+    render(true);
+  } finally {
+    restoringFromHistory = false;
+  }
+  if(screen === 'app'){
+    if(activeDishId) loadCompletions(activeDishId);
+    else if(appView === 'browse' && !communityDishes.length) loadApprovedRecipes();
+    else if((appView === 'leaderboard' || appView === 'groups') && !leaderboardRows) loadLeaderboard();
+  }
+});
+
 function findDish(id){
   const sid = String(id);
   return DISHES.find(d => String(d.id) === sid) || communityDishes.find(d => String(d.id) === sid) || null;
 }
+function normalizeMacros(m){
+  if(!m || typeof m !== 'object') return null;
+  const n = v => { const x = Number(v); return isFinite(x) && x > 0 ? Math.round(x * 10) / 10 : 0; };
+  const out = {
+    servings: Math.max(1, Math.round(Number(m.servings) || 1)),
+    calories: Math.round(n(m.calories)),
+    protein: n(m.protein), carbs: n(m.carbs), fat: n(m.fat),
+    saturatedFat: n(m.saturatedFat), fiber: n(m.fiber), sugar: n(m.sugar),
+    sodium: Math.round(n(m.sodium)), cholesterol: Math.round(n(m.cholesterol))
+  };
+  if(!out.calories && !out.protein && !out.carbs && !out.fat) return null;
+  return out;
+}
 function communityDishFromCloud(raw){
-  const ingredients = typeof raw.ingredients === 'string'
+  let ingredients = typeof raw.ingredients === 'string'
     ? raw.ingredients
     : (Array.isArray(raw.ingredients) ? raw.ingredients.join('\n') : '');
+  const macros = normalizeMacros(raw.macros && typeof raw.macros === 'object' ? { servings: raw.servings, ...raw.macros } : null);
+  // The portion picker needs a "Yield:" line; build one from the servings the author entered.
+  const servings = Math.round(Number(raw.servings) || Number(raw.macros && raw.macros.servings) || 0);
+  if(servings > 0 && !/^\s*yield:?\s*(\n|$)/i.test(ingredients)){
+    ingredients = 'Yield:\n' + servings + ' ' + (servings === 1 ? 'serving' : 'servings') + '\n' + ingredients;
+  }
   const stepsSrc = raw.steps != null ? raw.steps : raw.instructions;
   const steps = typeof stepsSrc === 'string'
     ? stepsSrc
@@ -618,7 +721,9 @@ function communityDishFromCloud(raw){
     community: true,
     author: raw.author || '',
     approved: raw.approved === true,
-    macros: (raw.macros && typeof raw.macros === 'object') ? raw.macros : null
+    views: Number(raw.views) || 0,
+    completions: Number(raw.completions) || 0,
+    macros: macros
   };
 }
 function dishCompleted(s, id){
@@ -1286,7 +1391,7 @@ function renderApp(){
   <div class="app-shell">
     <div class="app-topbar">
       <div class="app-topbar-brand">
-        <div class="brand" style="cursor:pointer;" onclick="switchAppView('recipe')">Chyve</div>
+        <div class="brand" style="cursor:pointer;" title="Your profile" onclick="openProfile('${jsStr(currentUser)}')">Chyve</div>
         <button class="btn btn-gold btn-small upgrade-btn" onclick="goToPlans()">${iconSparkle()} Upgrade</button>
       </div>
       <div class="stat-pills">
@@ -1608,7 +1713,7 @@ function renderCookingPage(dish, s){
           ${steps.map((st,i)=>checklistItem(dish.id,'steps',i,st,c.steps[i],done)).join('')}
         </ul>
       </div>
-      ${renderMacroCard(dish)}
+      ${renderMacroCard(dish, factor, yieldInfo ? formatYieldLabel(dish, currentYield) : '')}
       ${!done ? completionPhotoCard() : ''}
       <div class="complete-btn-row">
         ${done
@@ -1646,14 +1751,30 @@ function getDishMacros(dish){
   if(dish.macros && typeof dish.macros === 'object') return dish.macros;
   return null;
 }
-function macroCardHTML(m){
+function scaleMacros(m, factor){
+  const f = factor > 0 ? factor : 1;
+  if(f === 1) return m;
+  const g = v => Math.round(v * f * 10) / 10;
+  return {
+    ...m,
+    calories: Math.round(m.calories * f),
+    protein: g(m.protein), carbs: g(m.carbs), fat: g(m.fat),
+    saturatedFat: g(m.saturatedFat), fiber: g(m.fiber), sugar: g(m.sugar),
+    sodium: Math.round(m.sodium * f), cholesterol: Math.round(m.cholesterol * f)
+  };
+}
+/* scale = selected portion ÷ default portion (1 = the recipe's default portion).
+   Every value is multiplied by it, so the protein / carb / fat split stays identical. */
+function macroCardHTML(baseMacros, scale, scaleLabel){
+  const m = scaleMacros(baseMacros, scale);
+  const isScaled = !!(scale && scale !== 1);
   const pCal = m.protein * 4, cCal = m.carbs * 4, fCal = m.fat * 9;
   const total = (pCal + cCal + fCal) || 1;
   const pct = v => Math.round((v / total) * 100);
-  const per = m.servings > 1 ? ' \u00b7 recipe makes ' + m.servings + ' servings' : '';
+  const per = isScaled ? ('Scaled ' + (Math.round(scale * 100) / 100) + '× for ' + (scaleLabel || 'this portion')) : m.servings > 1 ? ' \u00b7 recipe makes ' + m.servings + ' servings' : '';
   return `
   <div class="macro-card">
-    <div class="macro-head"><h3>Estimated nutrition</h3><span class="macro-sub">Per serving${per}</span></div>
+    <div class="macro-head"><h3>Estimated nutrition</h3><span class="macro-sub">${isScaled ? '' : 'Per serving'}${per}</span></div>
     <div class="macro-main">
       <div class="macro-tile cal"><div class="val">${m.calories}<small>kcal</small></div><div class="lbl">Calories</div></div>
       <div class="macro-tile"><div class="val">${m.protein}<small>g</small></div><div class="lbl">Protein</div></div>
@@ -1675,51 +1796,57 @@ function macroCardHTML(m){
       <div><span>Sodium</span><b>${m.sodium} mg</b></div>
       <div><span>Cholesterol</span><b>${m.cholesterol} mg</b></div>
     </div>
-    <p class="macro-note">AI estimate based on the ingredient list only — real values vary with brands and portion sizes.</p>
+    <p class="macro-note">Estimate — real values vary with brands and portion sizes.</p>
   </div>`;
 }
-function renderMacroCard(dish){
+function renderMacroCard(dish, scale, scaleLabel){
   if(!dishHasRealIngredients(dish)) return '';
-  const m = getDishMacros(dish);
-  return m ? macroCardHTML(m) : '';
+  const m = normalizeMacros(getDishMacros(dish));
+  return m ? macroCardHTML(m, scale, scaleLabel) : '';
 }
  
 /* ---------- Completion photo + completion counts ---------- */
+/* Views + completions are stored on the recipe document in Firestore and only
+   exist for community recipes — the built-in path dishes never record or show them. */
 function loadCompletions(dishId){
-  if(dishId == null) return;
-  const key = String(dishId);
-  // One read of dishStats/{id} gives both the shared completion and view counts.
-  waitRecipes().then(() => window.getDishStats(key)).then(stats => {
-    if(!stats) return;
-    dishCompletions[key] = stats.completions;
-    dishViews[key] = stats.views;
+  const first = findDish(dishId);
+  if(!first || !first.community) return;
+  const key = String(first.id);
+  waitRecipes().then(() => window.getRecipeStats(key)).then(stats => {
+    const dish = findDish(key);
+    if(!stats || !dish) return;
+    dish.views = stats.views;
+    dish.completions = stats.completions;
     render(false);
-  }).catch(e => console.error('Could not load dish stats:', e));
+  }).catch(e => console.error('Could not load recipe stats:', e));
 }
-/* Count a view once per browser session per dish, so reopening or refreshing
+/* Count a view once per browser session per recipe, so reopening or refreshing
    doesn't inflate the number. Resolves true if a view was actually recorded. */
 const VIEW_SEEN_KEY = 'chyve_viewed_dishes';
 function recordDishView(dishId){
-  if(dishId == null) return Promise.resolve(false);
-  const key = String(dishId);
+  const dish = findDish(dishId);
+  if(!dish || !dish.community) return Promise.resolve(false);
+  const key = String(dish.id);
   let seen = {};
   try{ seen = JSON.parse(sessionStorage.getItem(VIEW_SEEN_KEY) || '{}') || {}; }catch(e){ seen = {}; }
   if(seen[key]) return Promise.resolve(false);
   seen[key] = 1;
   try{ sessionStorage.setItem(VIEW_SEEN_KEY, JSON.stringify(seen)); }catch(e){}
   return waitRecipes()
-    .then(() => window.incrementViews(key))
+    .then(() => window.incrementRecipeStat(key, 'views'))
     .then(() => true)
     .catch(e => { console.error('Could not record view:', e); return false; });
 }
 function viewsText(dishId){
-  const n = dishViews[String(dishId)];
-  if(n == null) return '';
+  const dish = findDish(dishId);
+  if(!dish || !dish.community) return '';
+  const n = Number(dish.views) || 0;
   return n + ' view' + (n === 1 ? '' : 's');
 }
 function completionsText(dishId){
-  const n = dishCompletions[String(dishId)];
-  if(n == null) return '';
+  const dish = findDish(dishId);
+  if(!dish || !dish.community) return '';
+  const n = Number(dish.completions) || 0;
   return n + ' completion' + (n === 1 ? '' : 's');
 }
 function handleCompletionPhotoPick(e){
@@ -1877,10 +2004,13 @@ function finalizeDish(dishId){
 
   syncUserProfile(currentUser, s);
 
-  // bump the shared completions counter in Firebase and show the new number right away
-  const key = String(dish.id);
-  dishCompletions[key] = (dishCompletions[key] || 0) + 1;
-  waitRecipes().then(() => window.incrementCompletions(key)).then(() => loadCompletions(key)).catch(e => console.error('Could not record completion:', e));
+  // Community recipes keep a shared completions counter on their recipe document;
+  // built-in path dishes don't store completions at all.
+  if(dish.community){
+    const key = String(dish.id);
+    dish.completions = (Number(dish.completions) || 0) + 1;
+    waitRecipes().then(() => window.incrementRecipeStat(key, 'completions')).then(() => loadCompletions(key)).catch(e => console.error('Could not record completion:', e));
+  }
   completionPhoto = '';
  
   lastCompletion = { dish, leveledUp: newLevel>prevLevel, newLevelIdx:newLevel, newBadges };
@@ -2210,7 +2340,7 @@ function renderUpload(s){
     <div class="social-hero">
       <div class="hero-glow"></div>
       <h2>Upload a recipe</h2>
-      <p>Share a dish with a photo, a name, ingredients, and instructions. We check every recipe automatically, and if it passes it goes live in Browse right away.</p>
+      <p>Share a dish with a photo, a name, how long it takes, ingredients, instructions, and nutrition. We check every recipe automatically, and if it passes it goes live in Browse right away.</p>
     </div>
     <form class="upload-form" onsubmit="return submitRecipeUpload(event)">
       <div class="recipe-photo-card">
@@ -2235,6 +2365,16 @@ function renderUpload(s){
         <label for="recipe-name">Name</label>
         <input id="recipe-name" type="text" maxlength="80" placeholder="Garlic roasted chicken" required value="${esc(recipeDraftName)}" oninput="recipeDraftName=this.value">
       </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="recipe-time">Total time</label>
+          <input id="recipe-time" type="text" maxlength="30" placeholder="e.g. 45 min" required value="${esc(recipeDraftTime)}" oninput="recipeDraftTime=this.value">
+        </div>
+        <div class="field">
+          <label for="recipe-servings">Servings it makes</label>
+          <input id="recipe-servings" type="number" min="1" max="50" step="1" inputmode="numeric" required value="${esc(recipeDraftServings)}" oninput="recipeDraftServings=this.value">
+        </div>
+      </div>
       <div class="field">
         <label for="recipe-ingredients">Ingredients</label>
         <textarea id="recipe-ingredients" class="bio-edit upload-area" placeholder="One ingredient per line" required oninput="recipeDraftIngredients=this.value">${esc(recipeDraftIngredients)}</textarea>
@@ -2243,11 +2383,13 @@ function renderUpload(s){
         <label for="recipe-instructions">Instructions</label>
         <textarea id="recipe-instructions" class="bio-edit upload-area" placeholder="Write the steps" required oninput="recipeDraftInstructions=this.value">${esc(recipeDraftInstructions)}</textarea>
       </div>
+      ${renderRecipeMacroForm()}
       <button type="submit" class="btn btn-gold btn-block" ${socialBusy?'disabled':''}>${socialBusy?'Sending…':'Publish recipe'}</button>
     </form>
   `;
 }
 function startAnotherRecipeUpload(){
+  resetRecipeDraftExtras();
   recipeOutForReview = false;
   recipeUploadRunId++;
   recipeUploadStage = 'form';
@@ -2265,6 +2407,76 @@ function captureRecipeDraftFields(){
   if(nameEl) recipeDraftName = nameEl.value;
   if(ingEl) recipeDraftIngredients = ingEl.value;
   if(instEl) recipeDraftInstructions = instEl.value;
+  const timeEl = document.getElementById('recipe-time');
+  const servEl = document.getElementById('recipe-servings');
+  if(timeEl) recipeDraftTime = timeEl.value;
+  if(servEl) recipeDraftServings = servEl.value;
+  MACRO_FIELDS.forEach(f => {
+    const el = document.getElementById('recipe-macro-' + f[0]);
+    if(el) recipeDraftMacros[f[0]] = el.value;
+  });
+}
+function resetRecipeDraftExtras(){
+  recipeDraftTime = '';
+  recipeDraftServings = '4';
+  recipeDraftMacros = { calories:'', protein:'', carbs:'', fat:'', saturatedFat:'', fiber:'', sugar:'', sodium:'', cholesterol:'' };
+  recipeMacroState = '';
+}
+/* [key, label, unit, required] — nutrition is entered per serving. */
+const MACRO_FIELDS = [
+  ['calories', 'Calories', 'kcal', true],
+  ['protein', 'Protein', 'g', true],
+  ['carbs', 'Carbs', 'g', true],
+  ['fat', 'Fat', 'g', true],
+  ['saturatedFat', 'Saturated fat', 'g', false],
+  ['fiber', 'Fiber', 'g', false],
+  ['sugar', 'Sugar', 'g', false],
+  ['sodium', 'Sodium', 'mg', false],
+  ['cholesterol', 'Cholesterol', 'mg', false]
+];
+function renderRecipeMacroForm(){
+  const busy = recipeMacroState === 'loading';
+  return `
+      <div class="macro-form">
+        <div class="macro-form-head">
+          <div>
+            <h3>Nutrition</h3>
+            <p>Per serving. Type in your own numbers, or let us estimate them from your ingredients and servings.</p>
+          </div>
+          <button type="button" class="btn btn-ghost btn-small" ${busy ? 'disabled' : ''} onclick="estimateRecipeMacros()">${busy ? 'Estimating…' : 'Estimate macros'}</button>
+        </div>
+        <div class="macro-form-grid">
+          ${MACRO_FIELDS.map(f => `
+          <div class="field">
+            <label for="recipe-macro-${f[0]}">${f[1]} (${f[2]})${f[3] ? '' : ' <span class="opt">optional</span>'}</label>
+            <input id="recipe-macro-${f[0]}" type="number" min="0" step="any" inputmode="decimal" ${f[3] ? 'required' : ''} value="${esc(recipeDraftMacros[f[0]])}" oninput="recipeDraftMacros.${f[0]}=this.value">
+          </div>`).join('')}
+        </div>
+      </div>`;
+}
+/* The "Estimate macros" button: runs the macro estimator on the ingredients and fills the fields. */
+async function estimateRecipeMacros(){
+  if(recipeMacroState === 'loading') return;
+  captureRecipeDraftFields();
+  const ing = (recipeDraftIngredients || '').trim();
+  if(!ing){ showNotice('Add your ingredients first, then estimate the macros.'); return; }
+  const wanted = Math.round(Number(recipeDraftServings));
+  const text = wanted >= 1 ? 'Yield:\n' + wanted + ' ' + (wanted === 1 ? 'serving' : 'servings') + '\n' + ing : ing;
+  recipeMacroState = 'loading';
+  render(false);
+  try{
+    await waitForFn('apiEstimateMacros');
+    const m = await window.apiEstimateMacros(text);
+    const next = {};
+    MACRO_FIELDS.forEach(f => { next[f[0]] = String(m[f[0]] || 0); });
+    recipeDraftMacros = next;
+    if(!(wanted >= 1)) recipeDraftServings = String(m.servings || 1);
+  }catch(err){
+    console.error('Macro estimate failed:', err);
+    showNotice("Couldn't estimate the macros right now. You can type them in yourself.");
+  }
+  recipeMacroState = '';
+  render(false);
 }
 function clearRecipePhoto(){
   captureRecipeDraftFields();
@@ -2313,6 +2525,17 @@ async function submitRecipeUpload(e){
   if(!instructions || !instructions.trim()){ showNotice('Add instructions.'); return false; }
   if(!recipeDraftPhoto || !recipeDraftPhoto.trim()){ showNotice('Add a photo before submitting this recipe.'); return false; }
 
+  const time = (recipeDraftTime || '').trim();
+  if(!time){ showNotice('Add how long the recipe takes.'); return false; }
+  const servings = Math.round(Number(recipeDraftServings));
+  if(!(servings >= 1)){ showNotice('Add how many servings the recipe makes.'); return false; }
+  const requiredMissing = ['calories', 'protein', 'carbs', 'fat'].filter(k => {
+    const v = recipeDraftMacros[k];
+    return String(v == null ? '' : v).trim() === '' || !(Number(v) >= 0);
+  });
+  const macros = normalizeMacros({ ...recipeDraftMacros, servings });
+  if(requiredMissing.length || !macros){ showNotice('Add the nutrition (calories, protein, carbs and fat), or tap Estimate macros.'); return false; }
+
   const draft = {
     name: name.trim(),
     ingredients: ingredients.trim(),
@@ -2324,10 +2547,6 @@ async function submitRecipeUpload(e){
   recipeUploadStage = 'checking';
   render();
 
-  // Estimate the macros at the same time as the moderation check, from the ingredients only.
-  const macrosPromise = waitForFn('apiEstimateMacros')
-    .then(() => window.apiEstimateMacros(draft.ingredients))
-    .catch(err => { console.error('Macro estimate failed:', err); return null; });
 
   // 1) Ask the AI moderator whether the recipe is appropriate.
   let verdict;
@@ -2350,6 +2569,7 @@ async function submitRecipeUpload(e){
     recipeUploadResult = { name: draft.name, reason: verdict.reason, category: verdict.category };
     recipeUploadStage = 'rejected';
     // The rejected text and photo are discarded rather than kept in the form.
+    resetRecipeDraftExtras();
     recipeDraftPhoto = '';
     recipeDraftName = '';
     recipeDraftIngredients = '';
@@ -2360,7 +2580,6 @@ async function submitRecipeUpload(e){
   }
 
   // 2b) Approved: save it with approved = true so it goes live immediately.
-  const macros = await macrosPromise;
   const payload = {
     name: draft.name,
     ingredients: draft.ingredients,
@@ -2371,7 +2590,11 @@ async function submitRecipeUpload(e){
     status: 'live',
     approved: true,
     moderation: { checkedAt: Date.now(), by: 'ai' },
-    ...(macros ? { macros } : {}),
+    time,
+    servings,
+    macros,
+    views: 0,
+    completions: 0,
     xp: 20,
     createdAt: Date.now()
   };
@@ -2388,6 +2611,7 @@ async function submitRecipeUpload(e){
     }
     recipeUploadResult = { name: draft.name, macros: macros || null };
     recipeUploadStage = 'live';
+    resetRecipeDraftExtras();
     recipeDraftPhoto = '';
     recipeDraftName = '';
     recipeDraftIngredients = '';
