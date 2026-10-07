@@ -293,7 +293,7 @@ async function apiEstimateMacros(ingredients) {
 const response = await fetch(CHYVE_API_URL + "/api/check", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recipe: recipeText, photo: photo }),
+      body: JSON.stringify({}),
       signal: controller.signal
     });
     const data = await response.json();
