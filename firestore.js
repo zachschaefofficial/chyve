@@ -298,13 +298,7 @@ const response = await fetch(CHYVE_API_URL + "/api/check", {
     });
     const data = await response.json();
     const result = parseCheckResult(data.interaction);
-    return {
-      complete: result.complete === true || result.complete === "true",
-      confidence: Number(result.confidence) || 0,
-      reason: String(result.reason || "")
-    };
     console.log('apiCheck parsed result:', result);
-console.log('apiCheck parsed result:', result);
 window.createUser = createUser;
 window.getUserData = getUserData;
 window.editUserData = editUserData;
