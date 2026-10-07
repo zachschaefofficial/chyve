@@ -230,7 +230,10 @@ function avatarHTML(name, photo, cls, size){
 function persistLocal(){
   try{
     const out = {};
-    if(currentUser && users[currentUser]) out[currentUser] = users[currentUser];
+    if(currentUser && users[currentUser]){
+      const { admin, ...safe } = users[currentUser];
+      out[currentUser] = safe;
+    }
     localStorage.setItem('gv_users', JSON.stringify(out));
     if(currentUser) localStorage.setItem('gv_session', currentUser);
     else localStorage.removeItem('gv_session');
@@ -238,6 +241,10 @@ function persistLocal(){
 }
 function isYou(name){
   return String(name || '').toLowerCase() === String(currentUser || '').toLowerCase();
+}
+function currentUserIsAdmin(){
+  const s = currentUser && users[currentUser];
+  return !!(s && s.admin === true);
 }
 function youChip(){
   return `<span class="you-chip">you</span>`;
@@ -268,7 +275,7 @@ function waitRecipes(timeoutMs){
   return new Promise((resolve, reject) => {
     const start = Date.now();
     const tick = () => {
-      if(window.createRecipe && window.editRecipeData && window.getRecipeData && window.listApprovedRecipes) return resolve();
+      if(window.createRecipe && window.editRecipeData && window.getRecipeData && window.listApprovedRecipes && window.incrementRecipeStat && window.getRecipeStats) return resolve();
       if(Date.now() - start > (timeoutMs || 8000)) return reject(new Error('Cloud not ready'));
       setTimeout(tick, 50);
     };
@@ -315,9 +322,9 @@ function applyCloudUser(username, data, card){
   const incoming = { ...data };
   delete incoming.password;
   if(isYou(username) && users[currentUser]){
-    users[currentUser] = { ...users[currentUser], ...incoming, username: currentUser, password: users[currentUser].password };
+    users[currentUser] = { ...users[currentUser], ...incoming, username: currentUser, password: users[currentUser].password, admin: incoming.admin === true };
   } else {
-    users[username] = { ...(users[username] || {}), ...incoming, username, password: undefined };
+    users[username] = { ...(users[username] || {}), ...incoming, username, password: undefined, admin: incoming.admin === true };
   }
   const live = users[username] || incoming;
   socialIndex[username] = {
@@ -379,7 +386,7 @@ async function syncUserProfile(username, s){
   try{
     await waitFirestore();
     ensureWeek(u);
-    const { password, checks, ...rest } = u;
+    const { password, checks, admin, ...rest } = u;
     await window.editUserData(u.uid, {
       ...rest,
       firestoresync: true,
@@ -770,7 +777,7 @@ function dishNodeHTML(dish, opts){
     </button>
     ${opts.done ? `<div class="done-badge">${checkIconSVG()}</div>` : ''}
     <div class="dish-node-name">${dish.name}</div>
-    <div class="dish-node-meta">${dish.time} · ${dish.xp} XP</div>
+    <div class="dish-node-meta">${dish.time} · ${dish.xp} XP${dish.community && (viewsText(dish.id) || completionsText(dish.id)) ? ' · ' + [viewsText(dish.id), completionsText(dish.id)].filter(Boolean).join(' · ') : ''}</div>
     ${opts.statusText ? `<div class="dish-node-status ${opts.statusClass||''}">${opts.statusText}</div>` : ''}
   </div>`;
 }
@@ -1215,7 +1222,8 @@ async function enterWithGoogleUser(gUser){
         bio: '',
         groups: [],
         displayName: gUser.displayName || username,
-        google: true
+        google: true,
+        admin: false
       };
       await window.editUserData(gUser.uid, data);
     }
@@ -1240,7 +1248,8 @@ async function enterWithGoogleUser(gUser){
     bio: data.bio || '',
     groups: data.groups || [],
     displayName: data.displayName || gUser.displayName || username,
-    google: true
+    google: true,
+    admin: data.admin === true
   };
   currentUser = username;
   ensureWeek(users[username]);
@@ -1326,7 +1335,7 @@ async function loginFromCloud(identifier, password){
       render();
       return;
     }
-    users[username] = { ...data, username: data.username || username };
+    users[username] = { ...data, username: data.username || username, admin: data.admin === true };
     currentUser = username;
     window.__authBusy = false;
     window.__authError = '';
@@ -1622,6 +1631,7 @@ function renderOverviewPage(dish, s){
         ${done ? '<p class="done-note">You have cooked this before — feel free to make it again.</p>' : ''}
         ${renderMacroCard(dish)}
         <button type="button" class="btn btn-gold" onclick="startCooking()">${done ? 'View recipe again' : 'Start cooking'} →</button>
+        ${currentUserIsAdmin() && dish.community ? `<button type="button" class="btn btn-ghost btn-take-down" onclick="takeDownRecipe('${jsStr(String(dish.id))}')">Take down recipe</button>` : ''}
       </div>
     </div>
   `;
@@ -1807,8 +1817,8 @@ function renderMacroCard(dish, scale, scaleLabel){
 }
  
 /* ---------- Completion photo + completion counts ---------- */
-/* Views + completions are stored on the recipe document in Firestore and only
-   exist for community recipes — the built-in path dishes never record or show them. */
+/* Views + completions live on the community recipe document in Firestore.
+   Built-in path dishes are not in that collection, so they never record or show them. */
 function loadCompletions(dishId){
   const first = findDish(dishId);
   if(!first || !first.community) return;
@@ -1821,18 +1831,12 @@ function loadCompletions(dishId){
     render(false);
   }).catch(e => console.error('Could not load recipe stats:', e));
 }
-/* Count a view once per browser session per recipe, so reopening or refreshing
-   doesn't inflate the number. Resolves true if a view was actually recorded. */
-const VIEW_SEEN_KEY = 'chyve_viewed_dishes';
 function recordDishView(dishId){
+  if(!currentUser) return Promise.resolve(false);
   const dish = findDish(dishId);
   if(!dish || !dish.community) return Promise.resolve(false);
   const key = String(dish.id);
-  let seen = {};
-  try{ seen = JSON.parse(sessionStorage.getItem(VIEW_SEEN_KEY) || '{}') || {}; }catch(e){ seen = {}; }
-  if(seen[key]) return Promise.resolve(false);
-  seen[key] = 1;
-  try{ sessionStorage.setItem(VIEW_SEEN_KEY, JSON.stringify(seen)); }catch(e){}
+  dish.views = (Number(dish.views) || 0) + 1;
   return waitRecipes()
     .then(() => window.incrementRecipeStat(key, 'views'))
     .then(() => true)
@@ -2005,9 +2009,7 @@ function finalizeDish(dishId){
 
   syncUserProfile(currentUser, s);
 
-  // Community recipes keep a shared completions counter on their recipe document;
-  // built-in path dishes don't store completions at all.
-  if(dish.community){
+  if(currentUser && dish.community){
     const key = String(dish.id);
     dish.completions = (Number(dish.completions) || 0) + 1;
     waitRecipes().then(() => window.incrementRecipeStat(key, 'completions')).then(() => loadCompletions(key)).catch(e => console.error('Could not record completion:', e));
@@ -2284,15 +2286,38 @@ function loadApprovedRecipes(){
     if(appView === 'browse') render(false);
   });
 }
+async function takeDownRecipe(dishId){
+  if(!currentUserIsAdmin()) return;
+  const dish = findDish(dishId);
+  if(!dish || !dish.community) return;
+  if(!confirm('Take down "' + dish.name + '"? It will leave Browse for everyone.')) return;
+  try{
+    await waitRecipes();
+    await window.editRecipeData(String(dish.id), { approved: false, status: 'taken_down' });
+    communityDishes = communityDishes.filter(d => String(d.id) !== String(dish.id));
+    if(String(activeDishId) === String(dish.id)){
+      activeDishId = null;
+      dishStage = 'overview';
+    }
+    showNotice('Recipe taken down.');
+    render();
+  }catch(e){
+    console.error('Could not take down recipe:', e);
+    showNotice('Could not take down that recipe.');
+  }
+}
 
 function renderUpload(s){
   const res = recipeUploadResult || {};
   if(recipeUploadStage === 'checking'){
+    const adminPublish = currentUserIsAdmin();
     return `
       <div class="completed-page">
         <div class="check-spinner"></div>
-        <h2>Checking your recipe...</h2>
-        <p class="completed-sub">We're making sure <b>${esc(res.name || 'your recipe')}</b> is ready to share. This only takes a moment.</p>
+        <h2>${adminPublish ? 'Publishing your recipe...' : 'Checking your recipe...'}</h2>
+        <p class="completed-sub">${adminPublish
+          ? `<b>${esc(res.name || 'Your recipe')}</b> is going live now.`
+          : `We're making sure <b>${esc(res.name || 'your recipe')}</b> is ready to share. This only takes a moment.`}</p>
       </div>
     `;
   }
@@ -2545,42 +2570,42 @@ async function submitRecipeUpload(e){
   };
   const runId = ++recipeUploadRunId;
   recipeUploadResult = { name: draft.name };
+  const asAdmin = currentUserIsAdmin();
   recipeUploadStage = 'checking';
   render();
 
-
-  // 1) Ask the AI moderator whether the recipe is appropriate.
-  let verdict;
-  try{
-    if(typeof window.apiModerateRecipe !== 'function') throw new Error('apiModerateRecipe is not loaded');
-    verdict = await window.apiModerateRecipe(draft, draft.photo);
-  }catch(err){
-    console.error('Recipe check failed:', err);
+  let moderation = { checkedAt: Date.now(), by: asAdmin ? 'admin' : 'ai' };
+  if(!asAdmin){
+    // Regular cooks wait on the automatic check. Admins go live immediately.
+    let verdict;
+    try{
+      if(typeof window.apiModerateRecipe !== 'function') throw new Error('apiModerateRecipe is not loaded');
+      verdict = await window.apiModerateRecipe(draft, draft.photo);
+    }catch(err){
+      console.error('Recipe check failed:', err);
+      if(runId !== recipeUploadRunId) return false;
+      recipeUploadResult = { name: draft.name };
+      recipeUploadStage = 'error';
+      render();
+      return false;
+    }
     if(runId !== recipeUploadRunId) return false;
-    recipeUploadResult = { name: draft.name };
-    recipeUploadStage = 'error';
-    render();
-    return false;
-  }
-  // The user may have left the upload page while we waited.
-  if(runId !== recipeUploadRunId) return false;
 
-  // 2a) Rejected: nothing is saved, and the user has to upload an appropriate recipe.
-  if(!verdict.appropriate){
-    recipeUploadResult = { name: draft.name, reason: verdict.reason, category: verdict.category };
-    recipeUploadStage = 'rejected';
-    // The rejected text and photo are discarded rather than kept in the form.
-    resetRecipeDraftExtras();
-    recipeDraftPhoto = '';
-    recipeDraftName = '';
-    recipeDraftIngredients = '';
-    recipeDraftInstructions = '';
-    if(appView !== 'upload') showNotice('Your recipe was not approved. Open Upload to see why.');
-    render();
-    return false;
+    if(!verdict.appropriate){
+      recipeUploadResult = { name: draft.name, reason: verdict.reason, category: verdict.category };
+      recipeUploadStage = 'rejected';
+      resetRecipeDraftExtras();
+      recipeDraftPhoto = '';
+      recipeDraftName = '';
+      recipeDraftIngredients = '';
+      recipeDraftInstructions = '';
+      if(appView !== 'upload') showNotice('Your recipe was not approved. Open Upload to see why.');
+      render();
+      return false;
+    }
+    moderation = { checkedAt: Date.now(), by: 'ai' };
   }
 
-  // 2b) Approved: save it with approved = true so it goes live immediately.
   const payload = {
     name: draft.name,
     ingredients: draft.ingredients,
@@ -2590,7 +2615,7 @@ async function submitRecipeUpload(e){
     authorUid: users[currentUser] && users[currentUser].uid || '',
     status: 'live',
     approved: true,
-    moderation: { checkedAt: Date.now(), by: 'ai' },
+    moderation,
     time,
     servings,
     macros,
@@ -2602,11 +2627,9 @@ async function submitRecipeUpload(e){
   try{
     await waitRecipes();
     const result = await window.createRecipe(payload);
-    // Show it in Browse right away without waiting for a reload.
     const live = communityDishFromCloud({ ...result.data, id: result.id });
     communityDishes = [live].concat(communityDishes.filter(d => String(d.id) !== String(live.id)));
     if(runId !== recipeUploadRunId){
-      // The user started something else meanwhile; leave their form alone.
       showNotice('Your recipe "' + draft.name + '" is live!');
       return false;
     }
@@ -2622,7 +2645,7 @@ async function submitRecipeUpload(e){
   }catch(err){
     console.error('Could not publish recipe:', err);
     if(runId !== recipeUploadRunId) return false;
-    showNotice('Your recipe passed the check but could not be published. Please try again.');
+    showNotice(asAdmin ? 'Your recipe could not be published. Please try again.' : 'Your recipe passed the check but could not be published. Please try again.');
     recipeUploadStage = 'form';
     recipeUploadResult = null;
     render(false);
@@ -2996,7 +3019,7 @@ function spawnConfettiGlobal(){
       return window.getUserData(users[currentUser].uid).then(res => {
         if(res && res.data){
           const incoming = res.data;
-          users[currentUser] = { ...users[currentUser], ...incoming, password: users[currentUser].password || incoming.password };
+          users[currentUser] = { ...users[currentUser], ...incoming, password: users[currentUser].password || incoming.password, admin: incoming.admin === true };
           ensureWeek(users[currentUser]);
           persistLocal();
           publishPublicCard(users[currentUser]);

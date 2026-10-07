@@ -19,10 +19,10 @@ app.get("/", (req, res) => {
     res.send("Chyve backend is running!");
 });
 
-app.get("/api/test", async (req, res) => {
+app.post("/api/test", async (req, res) => {
     const interaction = await ai.interactions.create({
     model: "gemini-3.8-flash",
-    input: "Explain how AI works in a few words",
+    input: "respond with valid json with a string containing the word: ok inside of it.",
     });
     res.json({
         success: true,

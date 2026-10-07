@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment, updateDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, sendSignInLinkToEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 // TODO: Replace the following with your app's Firebase project configuration
 // See: https://support.google.com/firebase/answer/7015592
@@ -23,19 +23,31 @@ async function createUser(email, password, data) {
   const uid = user.uid;
   const newData = {
     ...data,
-    uid: uid
+    uid: uid,
+    admin: false
   };
   await setDoc(doc(db, "users", uid), newData);
   return { uid: uid, data: newData };
 }
 async function editUserData(uid, newData) {
-  await setDoc(doc(db, "users", uid), newData, { merge: true });
-  return {data: newData};
+  const payload = { ...(newData || {}) };
+  delete payload.admin;
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) payload.admin = false;
+  await setDoc(ref, payload, { merge: true });
+  return { data: payload };
 }
 async function getUserData(uid){
   const docRef = doc(db, "users", uid);
   const docSnap = await getDoc(docRef);
-  return { data: docSnap.data() };
+  if (!docSnap.exists()) return { data: undefined };
+  let data = docSnap.data() || {};
+  if (typeof data.admin !== "boolean") {
+    await setDoc(docRef, { admin: false }, { merge: true });
+    data = { ...data, admin: false };
+  }
+  return { data };
 }
 async function createRecipe(data) {
   const id = (typeof crypto !== "undefined" && crypto.randomUUID)
@@ -44,7 +56,9 @@ async function createRecipe(data) {
   const newData = {
     ...data,
     id: id,
-    approved: data.approved === true
+    approved: data.approved === true,
+    views: Number(data.views) || 0,
+    completions: Number(data.completions) || 0
   };
   await setDoc(doc(db, "recipes", id), newData);
   return { id: id, data: newData };
@@ -64,6 +78,14 @@ async function listApprovedRecipes(){
   }
 }
 async function editRecipeData(id, newData) {
+  if (newData && newData.approved === false && newData.status === "taken_down") {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Sign in as an admin to take down recipes.");
+    const userSnap = await getDoc(doc(db, "users", user.uid));
+    if (!userSnap.exists() || userSnap.data().admin !== true) {
+      throw new Error("Only admins can take down recipes.");
+    }
+  }
   await setDoc(doc(db, "recipes", id), newData, { merge: true });
   return { data: newData };
 }
@@ -72,29 +94,22 @@ async function getRecipeData(id){
   const docSnap = await getDoc(docRef);
   return { data: docSnap.data() };
 }
-/* Completion + view counts live in dishStats/{dishId} ({ completions, views }).
-   Keyed by dish id, so it works for built-in dishes and community recipes.
-   These counters are shared by everyone, so the Firestore rules must let anyone
-   (signed in or not) read dishStats, and only allow +1 increments on write. */
-async function incrementCompletions(dishId) {
-  await setDoc(doc(db, "dishStats", String(dishId)), { completions: increment(1) }, { merge: true });
+/* Views and completions live on the recipe document ({ views, completions }).
+   Each signed-in view or completion adds 1 with Firestore increment() so every
+   client sees the same shared counts. */
+async function incrementRecipeStat(id, field) {
+  if (!auth.currentUser || (field !== "views" && field !== "completions")) return false;
+  const ref = doc(db, "recipes", String(id));
+  await updateDoc(ref, { [field]: increment(1) });
+  return true;
 }
-async function incrementViews(dishId) {
-  await setDoc(doc(db, "dishStats", String(dishId)), { views: increment(1) }, { merge: true });
-}
-async function getDishStats(dishId) {
-  const snap = await getDoc(doc(db, "dishStats", String(dishId)));
+async function getRecipeStats(id) {
+  const snap = await getDoc(doc(db, "recipes", String(id)));
   const data = snap.exists() ? snap.data() : null;
   return {
     completions: (data && Number(data.completions)) || 0,
     views: (data && Number(data.views)) || 0
   };
-}
-async function getCompletions(dishId) {
-  return (await getDishStats(dishId)).completions;
-}
-async function getViews(dishId) {
-  return (await getDishStats(dishId)).views;
 }
 const actionCodeSettings = {
   // URL you want to redirect back to. The domain (www.example.com) for this
@@ -173,7 +188,7 @@ async function apiCheck(image, recipe) {
   if (!recipeText) throw new Error("No recipe provided.");
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60000);
+  const timer = setTimeout(() => controller.abort(), 120000);
   try {
     const response = await fetch(CHYVE_API_URL + "/api/check", {
       method: "POST",
@@ -205,7 +220,7 @@ async function apiModerateRecipe(recipe, image) {
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60000);
+  const timer = setTimeout(() => controller.abort(), 120000);
   try {
     const response = await fetch(CHYVE_API_URL + "/api/moderate", {
       method: "POST",
@@ -243,7 +258,7 @@ async function apiEstimateMacros(ingredients) {
   if (!text.trim()) throw new Error("No ingredients provided.");
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60000);
+  const timer = setTimeout(() => controller.abort(), 120000);
   try {
     const response = await fetch(CHYVE_API_URL + "/api/macros", {
       method: "POST",
@@ -275,6 +290,21 @@ async function apiEstimateMacros(ingredients) {
     clearTimeout(timer);
   }
 }
+const response = await fetch(CHYVE_API_URL + "/api/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipe: recipeText, photo: photo }),
+      signal: controller.signal
+    });
+    const data = await response.json();
+    const result = parseCheckResult(data.interaction);
+    return {
+      complete: result.complete === true || result.complete === "true",
+      confidence: Number(result.confidence) || 0,
+      reason: String(result.reason || "")
+    };
+    console.log('apiCheck parsed result:', result);
+console.log('apiCheck parsed result:', result);
 window.createUser = createUser;
 window.getUserData = getUserData;
 window.editUserData = editUserData;
@@ -282,11 +312,8 @@ window.createRecipe = createRecipe;
 window.getRecipeData = getRecipeData;
 window.editRecipeData = editRecipeData;
 window.listApprovedRecipes = listApprovedRecipes;
-window.incrementCompletions = incrementCompletions;
-window.getCompletions = getCompletions;
-window.incrementViews = incrementViews;
-window.getViews = getViews;
-window.getDishStats = getDishStats;
+window.incrementRecipeStat = incrementRecipeStat;
+window.getRecipeStats = getRecipeStats;
 window.SignInWithGoogle = SignInWithGoogle;
 window.sendVerificationEmail = sendVerificationEmail; 
 window.apiCheck = apiCheck;
