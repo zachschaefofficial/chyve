@@ -5,7 +5,7 @@ import { getAuth, createUserWithEmailAndPassword, sendSignInLinkToEmail, GoogleA
 // See: https://support.google.com/firebase/answer/7015592
 const firebaseConfig = {
   apiKey: "AIzaSyBA3f2xD4Tw8IDGzUZVGJOLSIkXdGTTt1I",
-  authDomain: "https://grapevine-457b0.firebaseapp.com/",
+  authDomain: "https://grapevine-457b0.firebaseapp.com",
   projectId: "grapevine-457b0",
   storageBucket: "grapevine-457b0.firebasestorage.app",
   messagingSenderId: "581040979464",
