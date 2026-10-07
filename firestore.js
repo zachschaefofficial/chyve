@@ -290,17 +290,6 @@ async function apiEstimateMacros(ingredients) {
     clearTimeout(timer);
   }
 }
-const controller = new AbortController();
-const timer = setTimeout(() => controller.abort(), 120000);
-const response = await fetch(CHYVE_API_URL + "/api/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-      signal: controller.signal
-    });
-    const data = await response.json();
-    const result = parseCheckResult(data.interaction);
-    console.log('apiCheck parsed result:', result);
 window.createUser = createUser;
 window.getUserData = getUserData;
 window.editUserData = editUserData;
