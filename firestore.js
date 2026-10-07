@@ -144,7 +144,7 @@ async function SignInWithGoogle(){
   }
 }
 // Base URL of the Chyve backend (website/server). Override by setting
-const CHYVE_API_URL = "https://chyvedomain.vercel.app" || "http://localhost:3000";
+const CHYVE_API_URL = "https://chyvedomain.vercel.app"
 
 // The model returns its JSON as text, sometimes wrapped in ```json fences.
 function parseCheckResult(raw) {
@@ -218,7 +218,6 @@ async function apiModerateRecipe(recipe, image) {
       }),
       signal: controller.signal
     });
-    if (!response.ok) throw new Error("Moderation request failed (" + response.status + ")");
     const data = await response.json();
     const result = parseCheckResult(data.interaction);
     console.log(result)
@@ -252,7 +251,6 @@ async function apiEstimateMacros(ingredients) {
       body: JSON.stringify({ ingredients: text.trim() }),
       signal: controller.signal
     });
-    if (!response.ok) throw new Error("Macro request failed (" + response.status + ")");
     const data = await response.json();
     const r = parseCheckResult(data.interaction);
     const num = (v) => { const n = Number(v); return isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : 0; };

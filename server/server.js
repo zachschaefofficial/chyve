@@ -175,7 +175,7 @@ The photo the author attached is the image that follows.` },
 app.post('/api/macros', async (req, res) => {
   const ingredients = String((req.body || {}).ingredients || '').trim();
   if (!ingredients) return res.status(400).json({ error: 'No ingredients' });
-  const prompt = `Estimate nutrition PER SERVING using ONLY this ingredient list. If a "Yield" line is given, divide by that many servings; otherwise infer a sensible serving count from the quantities. Reply with JSON only: {"servings":n,"calories":n,"protein":n,"carbs":n,"fat":n,"saturatedFat":n,"fiber":n,"sugar":n,"sodium":n,"cholesterol":n} (grams, except calories, and sodium and cholesterol in mg).\n\n${ingredients}`;
+  const prompt = `Estimate nutrition PER SERVING using ONLY this ingredient list. If a "Yield" line is given, divide by that many servings; otherwise infer a sensible serving count from the quantities. Reply with JSON only: {"servings":n,"calories":n,"protein":n,"carbs":n,"fat":n,"saturatedFat":n,"fiber":n,"sugar":n,"sodium":n,"cholesterol":n} (grams, except calories, and sodium and cholesterol in mg).${ingredients}`;
   try {
     const interaction = await ai.interactions.create({
       model: MODEL,
