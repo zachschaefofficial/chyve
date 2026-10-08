@@ -115,7 +115,7 @@ const users = {};      // { username: { username, email, password, xp, streak, c
 let currentUser = null;
 let screen = 'landing';     // landing | login | signup | app | plans
 let planNotice = '';        // transient message shown on the placeholder Plans page
-let appView = 'recipe';     // recipe | browse | path | profile | learn | leaderboard
+let appView = 'path';       // browse | path | profile | learn | leaderboard
 let avatarOpen = false;
 let activeDishId = null;    // dish currently open in the recipe flow
 let dishStage = 'overview'; // overview | cooking | checking | denied | completed
@@ -160,6 +160,32 @@ function levelIndex(xp){
   let idx = 0;
   for(let i=0;i<LEVELS.length;i++){ if(xp>=LEVELS[i].threshold) idx=i; }
   return idx;
+}
+function unlockedLevelIndex(s){
+  let level = 0;
+  while(level < LEVELS.length - 1){
+    const tier = levelTier(level);
+    const finalGroup = levelEndGroup(level);
+    const finalRowHasCompletion = DISHES.some(d =>
+      d.tier === tier && d.group === finalGroup && dishCompleted(s, d.id)
+    );
+    if(!finalRowHasCompletion) break;
+    level++;
+  }
+  return level;
+}
+function currentPathGroup(s){
+  const level = unlockedLevelIndex(s);
+  const tier = levelTier(level);
+  let group = levelStartGroup(level);
+  while(group < levelEndGroup(level)){
+    const rowHasCompletion = DISHES.some(d =>
+      d.tier === tier && d.group === group && dishCompleted(s, d.id)
+    );
+    if(!rowHasCompletion) break;
+    group++;
+  }
+  return group;
 }
 function maxGroupInTier(tier){
   const groups = DISHES.filter(d=>d.tier===tier).map(d=>d.group);
@@ -648,7 +674,7 @@ function syncHistory(){
 }
 function applyNavSnapshot(st){
   screen = st.screen || 'landing';
-  appView = st.appView || 'recipe';
+  appView = st.appView === 'recipe' ? 'path' : (st.appView || 'path');
   activeDishId = st.activeDishId || null;
   dishStage = st.dishStage === 'cooking' ? 'cooking' : 'overview';
   viewingUser = st.viewingUser || null;
@@ -1138,7 +1164,7 @@ function handleAuthSubmit(e, mode){
     }
     return false;
   }
-  screen='app'; appView='recipe'; activeDishId=null; dishStage='overview';
+  screen='app'; appView='path'; activeDishId=null; dishStage='overview';
   persistLocal();
   render();
   return false;
@@ -1262,7 +1288,7 @@ async function enterWithGoogleUser(gUser){
   window.__authBusy = false;
   window.__authError = '';
   screen = 'app';
-  appView = 'recipe';
+  appView = 'path';
   activeDishId = null;
   dishStage = 'overview';
   render();
@@ -1343,7 +1369,7 @@ async function loginFromCloud(identifier, password){
     currentUser = username;
     window.__authBusy = false;
     window.__authError = '';
-    screen = 'app'; appView = 'recipe'; activeDishId = null; dishStage = 'overview';
+    screen = 'app'; appView = 'path'; activeDishId = null; dishStage = 'overview';
     persistLocal();
     render();
   }catch(e){
@@ -1419,7 +1445,6 @@ function renderApp(){
       </div>
     </div>
     <div class="app-tabs">
-      <button type="button" class="app-tab ${appView==='recipe'?'active':''}" onclick="switchAppView('recipe')">Recipe</button>
       <button type="button" class="app-tab ${appView==='browse'||appView==='upload'?'active':''}" onclick="switchAppView('browse')">Browse</button>
       <button type="button" class="app-tab ${appView==='path'?'active':''}" onclick="switchAppView('path')">Path</button>
       <button type="button" class="app-tab ${appView==='learn'?'active':''}" onclick="switchAppView('learn')">Learn</button>
@@ -1427,8 +1452,7 @@ function renderApp(){
     </div>
     <div class="app-main">
       <div class="view-enter${viewShouldAnimate?' anim':''}">
-      ${activeDishId && (appView==='recipe' || appView==='path' || appView==='browse') ? renderDishFlow(s) : (
-        appView==='recipe' ? renderRecipe(s) :
+      ${activeDishId && (appView==='path' || appView==='browse') ? renderDishFlow(s) : (
         appView==='browse' ? renderBrowse(s) :
         appView==='path' ? renderPath(s) :
         appView==='learn' ? renderLearn(s) :
@@ -1462,9 +1486,6 @@ function switchAppView(v, toolId){
   } else if(v === 'learn' && currentUser){
     users[currentUser].visitedLearn = true;
     learnToolFocus = toolId || null;
-  } else if(v === 'recipe'){
-    learnToolFocus = null;
-    if(!activeDishId) dishStage = 'overview';
   } else if(v === 'leaderboard' || v === 'groups'){
     activeDishId = null;
     dishStage = 'overview';
@@ -1495,9 +1516,10 @@ function openLearnTool(toolId){
   }, 50);
 }
 function getCurrentGroupRecipes(s){
-  const lvl = levelIndex(s.xp);
-  const tier = levelTier(lvl);
-  return DISHES.filter(d => d.tier === tier && d.group === s.currentGroup);
+  const level = unlockedLevelIndex(s);
+  const tier = levelTier(level);
+  const group = currentPathGroup(s);
+  return DISHES.filter(d => d.tier === tier && d.group === group);
 }
 function getSuggestedDish(s){
   const pool = getCurrentGroupRecipes(s);
@@ -1555,7 +1577,7 @@ function cookAnotherRecipe(){
   dishStage = 'overview';
   lastCompletion = null;
   activeYieldAmount = null;
-  appView = goBrowse ? 'browse' : 'recipe';
+  appView = goBrowse ? 'browse' : 'path';
   render();
 }
 function backToChyve(){
@@ -1576,39 +1598,6 @@ function renderDishFlow(s){
   if(dishStage==='denied') return renderDeniedPage(dish);
   if(dishStage==='cooking') return renderCookingPage(dish, s);
   return renderOverviewPage(dish, s);
-}
- 
-/* ---------- Recipe view (today's choices) ---------- */
-function renderRecipe(s){
-  const lvl = levelIndex(s.xp);
-  const groupRecipes = getCurrentGroupRecipes(s);
-  const suggested = getSuggestedDish(s);
- 
-  if(groupRecipes.length === 0){
-    return `<div class="all-done-card">
-      <h2>Congratulations!</h2>
-      <p style="color:var(--text-dim);margin-top:10px;">You've completed all 54 recipes. Check the Path tab to revisit any tier.</p>
-    </div>`;
-  }
-  return `
-    <div style="max-width:1200px;margin:0 auto;">
-      <div style="text-align:center;margin-bottom:52px;">
-        <h2 style="color:var(--text-light);margin-bottom:8px;">${LEVELS[lvl].name}</h2>
-        <p style="color:var(--text-dim);">${LEVELS[lvl].desc || 'Choose one to cook and unlock the next'}</p>
-      </div>
-      <div class="dish-node-row">
-        ${groupRecipes.map(dish => {
-          const done = dishCompleted(s, dish.id);
-          const current = !done && suggested && suggested.id === dish.id;
-          return dishNodeHTML(dish, {
-            size:160, done, locked:false, current, clickable:true,
-            statusText: done ? 'Cooked' : (current ? 'Suggested pick' : 'Click to view'),
-            statusClass: done ? 'done' : (current ? 'ready' : '')
-          });
-        }).join('')}
-      </div>
-    </div>
-  `;
 }
  
 /* ---------- Recipe overview page ---------- */
@@ -1979,18 +1968,9 @@ function finalizeDish(dishId){
   const dish = findDish(dishId);
   if(!dish || dishCompleted(s, dish.id)) return;
  
-  const prevLevel = levelIndex(s.xp);
   s.completed.push(dish.id);
   s.xp += dish.xp;
- 
-  const newLevel = levelIndex(s.xp);
-  if(!dish.community){
-    if(newLevel > prevLevel){
-      s.currentGroup = levelStartGroup(newLevel);
-    } else if(dishLevel(dish) === prevLevel && dish.group === s.currentGroup && s.currentGroup < levelEndGroup(prevLevel)){
-      s.currentGroup += 1;
-    }
-  }
+  if(!dish.community) s.currentGroup = currentPathGroup(s);
  
   const today = todayStr();
   if(s.completionDates.length===0){
@@ -2047,7 +2027,8 @@ function renderCompletedPage(s){
  
 /* ---------- Path view ---------- */
 function renderPath(s){
-  const lvl = levelIndex(s.xp);
+  const lvl = unlockedLevelIndex(s);
+  const activeGroup = currentPathGroup(s);
   const suggested = getSuggestedDish(s);
  
   const grouped = {};
@@ -2060,7 +2041,7 @@ function renderPath(s){
   let html = `
     <div style="text-align:center;margin-bottom:8px;">
       <h2 style="color:var(--text-light);margin-bottom:8px;">Your path through Chyve</h2>
-      <p style="color:var(--text-dim);">Six levels, nine recipes each — cook one dish to grow to the next checkpoint.</p>
+      <p style="color:var(--text-dim);">Cook any dish in a row to unlock the next row. One dish from the final row opens the next level.</p>
     </div>
     <div class="path-container">
       <div class="path-bg-decor">${pathBackgroundDecorSVG()}</div>
@@ -2085,7 +2066,7 @@ function renderPath(s){
     dishes.forEach(dish=>{
       const done = s.completed.includes(dish.id);
       const dLvl = dishLevel(dish);
-      const locked = dLvl > lvl || (dLvl === lvl && dish.group > s.currentGroup);
+      const locked = dLvl > lvl || (dLvl === lvl && dish.group > activeGroup);
       const current = !locked && !done && suggested && suggested.id === dish.id;
       html += dishNodeHTML(dish, {
         size:140, done, locked, current, clickable: !locked,
@@ -2680,7 +2661,7 @@ async function openProfile(username){
 }
 function backFromProfile(){
   viewingUser = null;
-  appView = profileOrigin || 'recipe';
+  appView = profileOrigin || 'path';
   if(appView === 'profile' || appView === 'upload') appView = 'browse';
   if(appView === 'leaderboard' || appView === 'groups') loadLeaderboard();
   else if(appView === 'browse') loadApprovedRecipes();
