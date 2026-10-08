@@ -543,6 +543,11 @@ h3.section-title{font-size:1rem;margin-bottom:14px;letter-spacing:-0.02em;}
 .upload-form{max-width:620px;margin:0 auto;}
 .upload-form .field textarea{min-height:130px;line-height:1.55;resize:vertical;}
 .recipe-photo-card{margin-bottom:20px;}
+.global-photo-drop-overlay{position:fixed;inset:16px;z-index:999;display:flex;align-items:center;justify-content:center;border:3px dashed var(--accent);border-radius:24px;background:rgba(20,20,20,.64);backdrop-filter:blur(5px);pointer-events:none;}
+.global-photo-drop-overlay[hidden]{display:none;}
+.global-photo-drop-message{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 36px;border-radius:20px;background:var(--surface);color:var(--text);text-align:center;box-shadow:var(--shadow-lg);}
+.global-photo-drop-message strong{font-size:1.1rem;}
+.global-photo-drop-message>span:last-child{font-size:.88rem;color:var(--text-2);}
 .recipe-photo-drop{width:100%;min-height:200px;border-radius:var(--radius-lg);padding:26px 20px;border:1.5px dashed var(--line-2);background:var(--surface);color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;cursor:pointer;transition:border-color .15s ease, background .15s ease;}
 .recipe-photo-drop:hover{border-color:var(--accent);background:var(--accent-soft);}
 .recipe-photo-icon{width:48px;height:48px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;margin-bottom:4px;}

@@ -1867,6 +1867,70 @@ function handleCompletionPhotoPick(e){
   img.onerror = function(){ showNotice('Could not read that image.'); URL.revokeObjectURL(url); };
   img.src = url;
 }
+function activePhotoDropTarget(){
+  if(screen !== 'app') return '';
+  if(appView === 'upload' && recipeUploadStage === 'form') return 'recipe';
+  if(activeDishId && dishStage === 'cooking'){
+    const dish = findDish(activeDishId);
+    if(dish && !dishCompleted(users[currentUser] || {}, dish.id)) return 'completion';
+  }
+  return '';
+}
+function globalPhotoDropOverlay(){
+  let overlay = document.getElementById('global-photo-drop-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'global-photo-drop-overlay';
+    overlay.className = 'global-photo-drop-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = '<div class="global-photo-drop-message"><span class="recipe-photo-icon">' + genericImageIconSVG(28) + '</span><strong></strong><span>Release to add your image</span></div>';
+    document.body.appendChild(overlay);
+  }
+  return overlay;
+}
+function clearGlobalPhotoDrop(){
+  document.body.classList.remove('photo-drop-active');
+  const overlay = document.getElementById('global-photo-drop-overlay');
+  if(overlay) overlay.hidden = true;
+}
+function showGlobalPhotoDrop(target){
+  const overlay = globalPhotoDropOverlay();
+  overlay.querySelector('strong').textContent = target === 'recipe'
+    ? 'Drop photo to add it to your recipe'
+    : 'Drop photo to complete your recipe';
+  overlay.hidden = false;
+  document.body.classList.add('photo-drop-active');
+}
+function hasDraggedFiles(e){
+  return !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'));
+}
+document.addEventListener('dragenter', function(e){
+  const target = activePhotoDropTarget();
+  if(!target || !hasDraggedFiles(e)) return;
+  e.preventDefault();
+  showGlobalPhotoDrop(target);
+}, true);
+document.addEventListener('dragover', function(e){
+  const target = activePhotoDropTarget();
+  if(!target || !hasDraggedFiles(e)) return;
+  e.preventDefault();
+  if(e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  showGlobalPhotoDrop(target);
+}, true);
+document.addEventListener('dragleave', function(e){
+  if(e.target === document.documentElement && !e.relatedTarget) clearGlobalPhotoDrop();
+}, true);
+document.addEventListener('drop', function(e){
+  const target = activePhotoDropTarget();
+  if(!target || !hasDraggedFiles(e)) return;
+  e.preventDefault();
+  clearGlobalPhotoDrop();
+  const file = Array.from(e.dataTransfer.files || []).find(f => f.type && f.type.indexOf('image/') === 0);
+  if(!file){ showNotice('Choose an image file.'); return; }
+  const dropEvent = { target: { files: [file] } };
+  if(target === 'recipe') handleRecipePhotoPick(dropEvent);
+  else handleCompletionPhotoPick(dropEvent);
+}, true);
 function clearCompletionPhoto(){ completionPhoto = ''; render(false); }
 function completionPhotoCard(){
   return `
