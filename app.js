@@ -130,6 +130,13 @@ let lbMode = 'alltime';       // weekly | alltime
 let lbTieSeed = 1;
 let viewingUser = null;
 let profileOrigin = 'leaderboard';
+let adminUsers = null;        // cached user list for the Admin page
+let adminLoading = false;
+let adminQuery = '';          // search text on the Admin page
+let adminUserId = null;       // uid of the user whose completions the admin is viewing
+let adminCompletions = null;  // that user's completion records (null = still loading)
+let adminBusy = false;        // a ban / unban request is running
+let adminError = '';
 let groupFormOpen = false;
 let joinCodeInput = '';
 let activeGroupId = null;
@@ -412,7 +419,7 @@ async function syncUserProfile(username, s){
   try{
     await waitFirestore();
     ensureWeek(u);
-    const { password, checks, admin, ...rest } = u;
+    const { password, checks, admin, banned, bannedAt, bannedBy, ...rest } = u;
     await window.editUserData(u.uid, {
       ...rest,
       firestoresync: true,
@@ -613,7 +620,7 @@ function formatYieldLabel(dish, amount){
    RENDER
    ========================================================= */
 function viewToken(){
-  return [screen, appView, activeDishId||'', dishStage, viewingUser||'', activeGroupId||'', recipeOutForReview?'1':'0', recipeUploadStage].join('|');
+  return [screen, appView, activeDishId||'', dishStage, viewingUser||'', adminUserId||'', activeGroupId||'', recipeOutForReview?'1':'0', recipeUploadStage].join('|');
 }
 function render(scrollTop){
   const token = viewToken();
@@ -652,6 +659,7 @@ function navSnapshot(){
     dishStage: dishStage === 'cooking' ? 'cooking' : 'overview',
     viewingUser: viewingUser,
     activeGroupId: activeGroupId,
+    adminUserId: adminUserId,
     profileOrigin: profileOrigin
   };
 }
@@ -680,6 +688,8 @@ function applyNavSnapshot(st){
   viewingUser = st.viewingUser || null;
   activeGroupId = st.activeGroupId || null;
   profileOrigin = st.profileOrigin || profileOrigin;
+  adminUserId = st.adminUserId || null;
+  if(appView === 'admin' && !currentUserIsAdmin()){ appView = 'path'; adminUserId = null; }
   avatarOpen = false;
   completionPhoto = '';
   lastCompletion = null;
@@ -712,6 +722,7 @@ window.addEventListener('popstate', function(e){
     if(activeDishId) loadCompletions(activeDishId);
     else if(appView === 'browse' && !communityDishes.length) loadApprovedRecipes();
     else if((appView === 'leaderboard' || appView === 'groups') && !leaderboardRows) loadLeaderboard();
+    else if(appView === 'admin'){ adminLoad(); if(adminUserId) adminLoadCompletions(adminUserId); }
   }
 });
 
@@ -1118,6 +1129,13 @@ function handleAuthSubmit(e, mode){
     const identifier = document.getElementById('auth-id').value.trim();
     const found = findAccount(identifier);
     if(found && found.account.password===password){
+      if(found.account.uid){
+        // Cloud account: confirm it hasn't been banned before letting it in.
+        window.__authBusy = true;
+        render();
+        loginLocalAfterBanCheck(found.username);
+        return false;
+      }
       currentUser = found.username;
     } else {
       window.__authBusy = true;
@@ -1258,6 +1276,12 @@ async function enterWithGoogleUser(gUser){
       await window.editUserData(gUser.uid, data);
     }
   }
+  if(window.isBannedData && window.isBannedData(data)){
+    if(window.signOutFirebase) await window.signOutFirebase();
+    const banErr = new Error('This account has been banned.');
+    banErr.code = 'chyve/banned';
+    throw banErr;
+  }
   const username = data.username;
   users[username] = {
     username,
@@ -1321,6 +1345,8 @@ async function handleGoogleSignIn(){
     window.__authBusy = false;
     if(code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request'){
       window.__authError = '';
+    } else if(code === 'chyve/banned'){
+      window.__authError = 'This account has been banned.';
     } else {
       window.__authError = 'Google sign-in did not finish. Please try again.';
     }
@@ -1361,6 +1387,12 @@ async function loginFromCloud(identifier, password){
     const data = res && res.data;
     if(!data || data.password !== password){
       window.__authError = 'Incorrect username/email or password.';
+      window.__authBusy = false;
+      render();
+      return;
+    }
+    if(window.isBannedData && window.isBannedData(data)){
+      window.__authError = 'This account has been banned.';
       window.__authBusy = false;
       render();
       return;
@@ -1449,6 +1481,7 @@ function renderApp(){
       <button type="button" class="app-tab ${appView==='path'?'active':''}" onclick="switchAppView('path')">Path</button>
       <button type="button" class="app-tab ${appView==='learn'?'active':''}" onclick="switchAppView('learn')">Learn</button>
       <button type="button" class="app-tab ${appView==='leaderboard'||appView==='groups'?'active':''}" onclick="switchAppView('leaderboard')">Leaderboard</button>
+      ${currentUserIsAdmin() ? `<button type="button" class="app-tab ${appView==='admin'?'active':''}" onclick="switchAppView('admin')">Admin</button>` : ''}
     </div>
     <div class="app-main">
       <div class="view-enter${viewShouldAnimate?' anim':''}">
@@ -1459,6 +1492,7 @@ function renderApp(){
         appView==='leaderboard' ? renderLeaderboard(s) :
         appView==='groups' ? renderGroups(s) :
         appView==='upload' ? renderUpload(s) :
+        appView==='admin' && currentUserIsAdmin() ? renderAdmin() :
         renderProfile(s)
       )}
       </div>
@@ -1469,8 +1503,16 @@ function renderApp(){
 }
  
 function switchAppView(v, toolId){
+  if(v === 'admin' && !currentUserIsAdmin()) return;   // admin page is for admins only
   appView = v;
   avatarOpen = false;
+  adminUserId = null;
+  if(v === 'admin'){
+    activeDishId = null;
+    dishStage = 'overview';
+    learnToolFocus = null;
+    adminLoad();
+  }
   if(v === 'profile') viewingUser = null;
   if(v === 'groups') activeGroupId = null;
   if(v === 'upload'){
@@ -1987,7 +2029,7 @@ async function completeDish(dishId){
   if(runId !== checkRunId || dishStage !== 'checking' || String(activeDishId) !== String(dish.id)) return;
 
   if(outcome.complete){
-    finalizeDish(dishId);
+    finalizeDish(dishId, photo);
   } else {
     checkResult = outcome;
     dishStage = 'denied';
@@ -2027,7 +2069,7 @@ function renderDeniedPage(dish){
 }
 
 /* Step 2: photo approved -> award XP and show the completed page */
-function finalizeDish(dishId){
+function finalizeDish(dishId, photo){
   const s = users[currentUser];
   const dish = findDish(dishId);
   if(!dish || dishCompleted(s, dish.id)) return;
@@ -2058,6 +2100,13 @@ function finalizeDish(dishId){
   s.weeklyXp = (s.weeklyXp || 0) + dish.xp;
 
   syncUserProfile(currentUser, s);
+
+  // Keep the photo they uploaded for this completion (visible to admins).
+  if(photo && s.uid){
+    waitFirestore()
+      .then(() => window.saveCompletionPhoto({ uid: s.uid, username: currentUser, recipeId: dish.id, recipeName: dish.name, photo: photo }))
+      .catch(e => console.error('Could not save the completion photo:', e));
+  }
 
   if(currentUser && dish.community){
     const key = String(dish.id);
@@ -3052,6 +3101,229 @@ function spawnConfettiGlobal(){
   }
 }
  
+/* =========================================================
+   BANS — a banned user (banned === true) can never log in.
+   Admins are immune: isBannedData() ignores the flag when admin === true.
+   ========================================================= */
+async function loginLocalAfterBanCheck(username){
+  try{
+    await waitFirestore();
+    const acct = users[username];
+    const res = await window.getUserData(acct.uid);
+    const data = res && res.data;
+    if(data && window.isBannedData(data)){
+      window.__authBusy = false;
+      window.__authError = 'This account has been banned.';
+      render();
+      return;
+    }
+    if(data) users[username] = { ...users[username], admin: data.admin === true };
+    currentUser = username;
+    window.__authBusy = false;
+    window.__authError = '';
+    screen = 'app'; appView = 'path'; activeDishId = null; dishStage = 'overview';
+    persistLocal();
+    render();
+  }catch(e){
+    console.error(e);
+    window.__authBusy = false;
+    window.__authError = "We couldn't verify your account right now. Please try again.";
+    render();
+  }
+}
+function forceLogoutBanned(){
+  currentUser = null;
+  avatarOpen = false;
+  viewingUser = null;
+  adminUserId = null;
+  persistLocal();
+  try{ localStorage.removeItem('gv_users'); localStorage.removeItem('gv_session'); }catch(e){}
+  if(window.signOutFirebase) window.signOutFirebase();
+  window.__authBusy = false;
+  window.__authError = 'This account has been banned.';
+  screen = 'login';
+  render();
+}
+async function checkBanStatus(){
+  const s = currentUser && users[currentUser];
+  if(!s || !s.uid || s.admin === true || !window.isUserBanned) return;
+  try{ if(await window.isUserBanned(s.uid)) forceLogoutBanned(); }catch(e){}
+}
+// Someone banned while their tab was open gets kicked out as soon as they come back to it.
+document.addEventListener('visibilitychange', function(){ if(!document.hidden) checkBanStatus(); });
+
+/* =========================================================
+   PAGE: ADMIN (only visible to users with admin === true)
+   List + search users -> click a user -> their completed recipes with photos
+   -> "Ban user" button.
+   ========================================================= */
+function adminActingUid(){
+  const s = currentUser && users[currentUser];
+  return (s && s.uid) || '';
+}
+async function adminLoad(){
+  if(!currentUserIsAdmin()) return;
+  adminLoading = true;
+  adminError = '';
+  if(screen === 'app' && appView === 'admin') render(false);
+  try{
+    await waitFirestore();
+    adminUsers = await window.listUsersForAdmin(adminActingUid());
+  }catch(e){
+    console.error('Could not load users:', e);
+    adminError = (e && e.message) ? e.message : 'Could not load users.';
+  }
+  adminLoading = false;
+  if(screen === 'app' && appView === 'admin') render(false);
+}
+function adminMatches(u, q){
+  if(!q) return true;
+  const hay = [u.username, u.displayName, u.email, u.uid].join(' ').toLowerCase();
+  return hay.indexOf(q) !== -1;
+}
+function renderAdminRows(){
+  const q = adminQuery.trim().toLowerCase();
+  const rows = (adminUsers || []).filter(u => adminMatches(u, q)).sort((a, b) => a.username.localeCompare(b.username));
+  if(!rows.length) return `<p class="admin-empty">${adminUsers ? 'No users match your search.' : ''}</p>`;
+  return rows.map(u => {
+    const src = safePhotoSrc(u.photo);
+    const avatar = src
+      ? `<img src="${esc(src)}" alt="">`
+      : esc(u.username.slice(0, 1).toUpperCase());
+    return `
+    <button type="button" class="admin-user-row" onclick="adminOpenUser('${jsStr(u.uid)}')">
+      <span class="admin-avatar">${avatar}</span>
+      <span class="admin-user-main">
+        <span class="admin-user-name">${esc(u.username)}</span>
+        <span class="admin-user-sub">${esc(u.email || 'no email')} · ${u.cooked} cooked · ${u.xp} XP</span>
+      </span>
+      ${u.admin ? '<span class="admin-chip admin-chip-admin">Admin</span>' : ''}
+      ${u.banned ? '<span class="admin-chip admin-chip-banned">Banned</span>' : ''}
+    </button>`;
+  }).join('');
+}
+function adminSearch(value){
+  adminQuery = value;
+  // Only redraw the list so the search box keeps focus while typing.
+  const el = document.getElementById('admin-user-list');
+  if(el) el.innerHTML = renderAdminRows();
+}
+function renderAdmin(){
+  if(adminUserId) return renderAdminUser();
+  return `
+  <div class="admin-wrap">
+    <div class="admin-head">
+      <h2>Admin</h2>
+      <p class="admin-sub">${adminUsers ? adminUsers.length + ' users' : 'Users'} — click one to review their completed recipes.</p>
+    </div>
+    <input id="admin-search" class="admin-search" type="search" placeholder="Search by username, name, or email" value="${esc(adminQuery)}" oninput="adminSearch(this.value)" autocomplete="off">
+    ${adminError ? `<p class="admin-error">${esc(adminError)}</p>` : ''}
+    ${adminLoading && !adminUsers ? '<p class="admin-empty">Loading users…</p>' : ''}
+    <div id="admin-user-list" class="admin-user-list">${renderAdminRows()}</div>
+  </div>`;
+}
+async function adminOpenUser(uid){
+  adminUserId = uid;
+  adminCompletions = null;
+  adminError = '';
+  render();
+  await adminLoadCompletions(uid);
+}
+async function adminLoadCompletions(uid){
+  try{
+    await waitFirestore();
+    const rows = await window.getUserCompletions(uid, adminActingUid());
+    if(adminUserId === uid) adminCompletions = rows;
+  }catch(e){
+    console.error('Could not load completions:', e);
+    if(adminUserId === uid){
+      adminCompletions = [];
+      adminError = (e && e.message) ? e.message : 'Could not load this user\'s recipes.';
+    }
+  }
+  if(adminUserId === uid && screen === 'app' && appView === 'admin') render(false);
+}
+function adminBack(){
+  adminUserId = null;
+  adminCompletions = null;
+  adminError = '';
+  render();
+}
+function renderAdminUser(){
+  const u = (adminUsers || []).find(x => x.uid === adminUserId);
+  if(!u) return `<div class="admin-wrap"><button type="button" class="btn btn-ghost btn-small" onclick="adminBack()">← All users</button><p class="admin-empty">User not found.</p></div>`;
+  const banBtn = u.admin
+    ? `<span class="admin-note">Admins can't be banned.</span>`
+    : (u.banned
+      ? `<button type="button" class="btn btn-ghost" ${adminBusy ? 'disabled' : ''} onclick="adminUnban('${jsStr(u.uid)}')">Unban user</button>`
+      : `<button type="button" class="btn btn-ghost btn-take-down" style="margin-top:0;" ${adminBusy ? 'disabled' : ''} onclick="adminBan('${jsStr(u.uid)}')">Ban user</button>`);
+  let body;
+  if(adminCompletions === null){
+    body = '<p class="admin-empty">Loading recipes…</p>';
+  } else if(!adminCompletions.length){
+    body = '<p class="admin-empty">No completed recipes with a saved photo yet.</p>';
+  } else {
+    body = `<div class="admin-photo-grid">${adminCompletions.map(c => {
+      const src = safePhotoSrc(c.photoUrl || c.photoData);
+      const when = c.completedAt ? new Date(c.completedAt).toLocaleString() : '';
+      return `
+      <figure class="admin-photo-card">
+        ${src ? `<img src="${esc(src)}" alt="${esc(c.recipeName || 'Completed recipe')}" loading="lazy">` : '<div class="admin-photo-missing">No photo</div>'}
+        <figcaption><b>${esc(c.recipeName || 'Recipe ' + c.recipeId)}</b><span>${esc(when)}</span></figcaption>
+      </figure>`;
+    }).join('')}</div>`;
+  }
+  return `
+  <div class="admin-wrap">
+    <button type="button" class="btn btn-ghost btn-small" onclick="adminBack()">← All users</button>
+    <div class="admin-user-card">
+      <div class="admin-user-main">
+        <span class="admin-user-name">${esc(u.username)} ${u.admin ? '<span class="admin-chip admin-chip-admin">Admin</span>' : ''}${u.banned ? '<span class="admin-chip admin-chip-banned">Banned</span>' : ''}</span>
+        <span class="admin-user-sub">${esc(u.email || 'no email')} · ${u.cooked} cooked · ${u.xp} XP · ${u.streak} day streak</span>
+      </div>
+      ${banBtn}
+    </div>
+    ${adminError ? `<p class="admin-error">${esc(adminError)}</p>` : ''}
+    <h3 class="admin-section-title">Completed recipes</h3>
+    ${body}
+  </div>`;
+}
+async function adminBan(uid){
+  const u = (adminUsers || []).find(x => x.uid === uid);
+  if(!u || u.admin || adminBusy) return;
+  if(!confirm('Ban ' + u.username + '? They will be logged out and will not be able to log in again.')) return;
+  adminBusy = true;
+  adminError = '';
+  render(false);
+  try{
+    await window.banUser(uid, adminActingUid());
+    u.banned = true;
+    showNotice(u.username + ' has been banned.');
+  }catch(e){
+    console.error('Ban failed:', e);
+    adminError = (e && e.message) ? e.message : 'Could not ban this user.';
+  }
+  adminBusy = false;
+  render(false);
+}
+async function adminUnban(uid){
+  const u = (adminUsers || []).find(x => x.uid === uid);
+  if(!u || adminBusy) return;
+  adminBusy = true;
+  adminError = '';
+  render(false);
+  try{
+    await window.unbanUser(uid, adminActingUid());
+    u.banned = false;
+    showNotice(u.username + ' has been unbanned.');
+  }catch(e){
+    console.error('Unban failed:', e);
+    adminError = (e && e.message) ? e.message : 'Could not unban this user.';
+  }
+  adminBusy = false;
+  render(false);
+}
+
 /* ---------- Init ---------- */
 (function boot(){
   try{
@@ -3068,6 +3340,10 @@ function spawnConfettiGlobal(){
   refreshSocialIndex().then(() => {
     if(currentUser && users[currentUser] && users[currentUser].uid){
       return window.getUserData(users[currentUser].uid).then(res => {
+        if(res && res.data && window.isBannedData && window.isBannedData(res.data)){
+          forceLogoutBanned();
+          return;
+        }
         if(res && res.data){
           const incoming = res.data;
           users[currentUser] = { ...users[currentUser], ...incoming, password: users[currentUser].password || incoming.password, admin: incoming.admin === true };

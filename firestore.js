@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment, updateDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-import { getAuth, createUserWithEmailAndPassword, sendSignInLinkToEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, sendSignInLinkToEmail, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-storage.js";
 // TODO: Replace the following with your app's Firebase project configuration
 // See: https://support.google.com/firebase/answer/7015592
 const firebaseConfig = {
@@ -15,6 +16,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 async function createUser(email, password, data) {
@@ -24,7 +26,8 @@ async function createUser(email, password, data) {
   const newData = {
     ...data,
     uid: uid,
-    admin: false
+    admin: false,
+    banned: false
   };
   await setDoc(doc(db, "users", uid), newData);
   return { uid: uid, data: newData };
@@ -32,9 +35,12 @@ async function createUser(email, password, data) {
 async function editUserData(uid, newData) {
   const payload = { ...(newData || {}) };
   delete payload.admin;
+  delete payload.banned; // only banUser() / unbanUser() may change this
+  delete payload.bannedAt;
+  delete payload.bannedBy;
   const ref = doc(db, "users", uid);
   const snap = await getDoc(ref);
-  if (!snap.exists()) payload.admin = false;
+  if (!snap.exists()) { payload.admin = false; payload.banned = false; }
   await setDoc(ref, payload, { merge: true });
   return { data: payload };
 }
@@ -110,6 +116,127 @@ async function getRecipeStats(id) {
     completions: (data && Number(data.completions)) || 0,
     views: (data && Number(data.views)) || 0
   };
+}
+/* ---------- Completion photos ----------
+   Every approved recipe completion is saved in the "completions" collection as
+   { uid, username, recipeId, recipeName, photoUrl | photoData, completedAt }.
+   The photo is shrunk first, then uploaded to Firebase Storage. If Storage isn't
+   available (rules / not enabled / user not signed into Firebase Auth) the shrunk
+   JPEG is stored directly on the Firestore document instead. */
+function shrinkImage(dataUrl, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => reject(new Error("Could not read the photo."));
+    img.src = dataUrl;
+  });
+}
+function safeKey(v) {
+  return String(v).replace(/[^A-Za-z0-9_-]/g, "_");
+}
+async function saveCompletionPhoto({ uid, username, recipeId, recipeName, photo }) {
+  if (!uid) throw new Error("Cannot save a completion photo without a user id.");
+  if (!photo) throw new Error("No photo to save.");
+  const key = safeKey(uid) + "_" + safeKey(recipeId);
+  const record = {
+    uid: uid,
+    username: username || "",
+    recipeId: String(recipeId),
+    recipeName: recipeName || "",
+    completedAt: Date.now()
+  };
+  let jpeg = await shrinkImage(photo, 1280, 0.82);
+  try {
+    const fileRef = storageRef(storage, "completions/" + safeKey(uid) + "/" + safeKey(recipeId) + ".jpg");
+    await uploadString(fileRef, jpeg, "data_url");
+    record.photoUrl = await getDownloadURL(fileRef);
+  } catch (e) {
+    console.warn("Storage upload failed, saving the photo on the Firestore document instead:", e);
+    // A Firestore document must stay under 1 MB, so shrink further until it fits.
+    let dim = 900, q = 0.7;
+    jpeg = await shrinkImage(photo, dim, q);
+    while (jpeg.length > 700000 && dim > 300) {
+      dim = Math.round(dim * 0.75);
+      q = Math.max(0.5, q - 0.05);
+      jpeg = await shrinkImage(photo, dim, q);
+    }
+    record.photoData = jpeg;
+  }
+  await setDoc(doc(db, "completions", key), record);
+  return record;
+}
+
+/* ---------- Admin tools ---------- */
+async function assertAdmin(actingUid) {
+  const uid = (auth.currentUser && auth.currentUser.uid) || actingUid;
+  if (!uid) throw new Error("Sign in as an admin first.");
+  const snap = await getDoc(doc(db, "users", uid));
+  if (!snap.exists() || snap.data().admin !== true) throw new Error("Admins only.");
+  return uid;
+}
+// Safe fields only — passwords and private profile data never leave this function.
+async function listUsersForAdmin(actingUid) {
+  await assertAdmin(actingUid);
+  const snap = await getDocs(collection(db, "users"));
+  return snap.docs
+    .filter(d => d.id.indexOf("__gv_") !== 0)
+    .map(d => {
+      const u = d.data() || {};
+      return {
+        uid: u.uid || d.id,
+        username: u.username || "",
+        displayName: u.displayName || u.username || "",
+        email: u.email || "",
+        photo: u.photo || "",
+        xp: Number(u.xp) || 0,
+        streak: Number(u.streak) || 0,
+        cooked: Array.isArray(u.completed) ? u.completed.length : 0,
+        admin: u.admin === true,
+        banned: u.banned === true
+      };
+    })
+    .filter(u => u.username);
+}
+async function getUserCompletions(targetUid, actingUid) {
+  const uid = (auth.currentUser && auth.currentUser.uid) || actingUid;
+  if (uid !== targetUid) await assertAdmin(actingUid);
+  const snap = await getDocs(query(collection(db, "completions"), where("uid", "==", targetUid)));
+  return snap.docs
+    .map(d => d.data())
+    .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+}
+async function banUser(targetUid, actingUid) {
+  await assertAdmin(actingUid);
+  const ref = doc(db, "users", targetUid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("User not found.");
+  if (snap.data().admin === true) throw new Error("Admins can't be banned.");
+  await updateDoc(ref, { banned: true, bannedAt: Date.now(), bannedBy: actingUid });
+  return { banned: true };
+}
+async function unbanUser(targetUid, actingUid) {
+  await assertAdmin(actingUid);
+  await updateDoc(doc(db, "users", targetUid), { banned: false });
+  return { banned: false };
+}
+// Banned users can never log in — admins are immune.
+function isBannedData(data) {
+  return !!data && data.banned === true && data.admin !== true;
+}
+async function isUserBanned(uid) {
+  if (!uid) return false;
+  const snap = await getDoc(doc(db, "users", uid));
+  return snap.exists() && isBannedData(snap.data());
+}
+async function signOutFirebase() {
+  try { await signOut(auth); } catch (e) { /* not signed in */ }
 }
 const actionCodeSettings = {
   // URL you want to redirect back to. The domain (www.example.com) for this
@@ -301,6 +428,14 @@ window.incrementRecipeStat = incrementRecipeStat;
 window.getRecipeStats = getRecipeStats;
 window.SignInWithGoogle = SignInWithGoogle;
 window.sendVerificationEmail = sendVerificationEmail; 
+window.saveCompletionPhoto = saveCompletionPhoto;
+window.listUsersForAdmin = listUsersForAdmin;
+window.getUserCompletions = getUserCompletions;
+window.banUser = banUser;
+window.unbanUser = unbanUser;
+window.isBannedData = isBannedData;
+window.isUserBanned = isUserBanned;
+window.signOutFirebase = signOutFirebase;
 window.apiCheck = apiCheck;
 window.apiModerateRecipe = apiModerateRecipe;
 window.apiEstimateMacros = apiEstimateMacros;
