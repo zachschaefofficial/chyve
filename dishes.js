@@ -2454,51 +2454,180 @@ Serve in the pan or on a warmed platter, garnished with the thyme.
     id: 46,
     tier: 2,
     group: 3,
-    name: 'Placeholder',
-    photo: '',
-    time: '',
+    name: 'Beef Chops',
+    photo: 'https://static01.nyt.com/images/2025/09/19/multimedia/ZS-Potato-Chops-Meat-Stuffed-Potato-Cutlets-jzkp/ZS-Potato-Chops-Meat-Stuffed-Potato-Cutlets-jzkp-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '4 hr',
     cookTime: '',
-    xp: 0,
+    xp: 50,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+10 to 12 chops
+FOR THE DOUGH
+2 pounds russet potatoes, scrubbed 
+
+2 tablespoons cornstarch
+
+1 teaspoon fine sea salt
+
+FOR THE FILLING AND FRYING
+1 cup ghee or vegetable oil, divided 
+
+2 teaspoons cumin seeds 
+
+½ small white or yellow onion, finely chopped 
+
+2 teaspoons garlic paste or freshly grated garlic 
+
+1 to 2 green bird’s-eye chiles, chopped 
+
+½ pound lean ground beef or lamb 
+
+1 ½ tablespoons chopped cilantro
+
+1 teaspoon garam masala, plus more to taste 
+
+½ teaspoon fine sea salt, plus more to taste 
+
+1 teaspoon freshly ground black pepper, plus more to taste 
+
+2 eggs
+
+¾ cup panko bread crumbs
+
+Chutney (homemade or store-bought), for serving
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+Start the dough: Add potatoes to a medium pot, cover with water by 1 inch and set on high heat. Once the water starts to boil, cook for 30 minutes, until there is little resistance when the potatoes are pierced with a fork. Drain the potatoes and return them to the pot, then fill with cold water and set aside to let the potatoes cool further.
+
+Step 2
+Make the filling: In a large frying pan, heat 1 ½ tablespoons of the ghee for 30 seconds on high heat. Stir in cumin seeds. Add the onion, garlic and green chiles. Continue cooking, stirring occasionally, until the onions are translucent, about 5 minutes. Add the beef and cook, breaking up meat into pieces, until it starts to crisp around the edges, about 7 minutes. Stir in cilantro, garam masala, salt and black pepper; adjust seasonings to taste. Transfer to a bowl and wipe out the pan.
+
+Step 3
+Drain and peel the potatoes and transfer to a large bowl. (If they’re still too hot to handle, you can rinse them under cold water for a few minutes.) Thoroughly mash using a fork or potato masher until any lumps are smoothed out. Add the cornstarch and 1 teaspoon salt and mix to form the dough.
+
+Step 4
+Take ¼ cup dough and roll it between your palms to form a ball. Flatten the ball to form a 2 ½-inch-wide round, about ¾ inch thick. Form a well in the middle of the round with your thumbs and add 2 tablespoons of meat filling. Gently fold the sides of the dough over the filling until the filling is completely covered. Flatten again as needed to maintain the disc shape of the cutlet. Repeat to form the remaining cutlets. (You may have some filling left over; save it to enjoy over rice.)
+
+Step 5
+Line a large plate with a paper towel and set aside. In a wide shallow bowl, lightly beat the eggs. Place bread crumbs in another wide shallow bowl.
+
+Step 6
+Add the remaining ghee to the frying pan and heat on high until melted and shimmering. Dip a cutlet in egg, and then evenly coat in bread crumbs and gently place in the skillet; repeat to add 3 or 4 more cutlets to the pan. Fry cutlets until golden brown, 30 to 45 seconds per side, then transfer to the paper-towel-lined plate. Repeat to cook the remaining cutlets in batches.
+
+Step 7
+Serve potato chops warm or at room temperature with chutney. (Refrigerate any extra chops for up to 2 days; reheat in a toaster oven or air fryer.)
     `
   },
   {
     id: 47,
     tier: 2,
     group: 3,
-    name: 'Placeholder',
-    photo: '',
-    time: '',
+    name: 'Chicken and Vermicelli Soup With Lime',
+    photo: 'https://static01.nyt.com/images/2025/01/21/multimedia/ND-Chicken-and-Vermicelli-Soup-gmbz/ND-Chicken-and-Vermicelli-Soup-gmbz-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '75 min',
     cookTime: '',
-    xp: 0,
+    xp: 50,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+6 servings 
+2 tablespoons butter or olive oil
+
+1 small or ½ large yellow onion, finely chopped
+
+½ teaspoon ground turmeric
+
+1 medium Yukon Gold potato, diced into small cubes 
+
+1 large carrot, finely chopped
+
+2 tablespoons tomato paste
+
+1 boneless, skinless chicken breast
+
+Kosher salt (such as Diamond Crystal) and black pepper
+
+¾ cup broken wheat vermicelli noodles, broken angel hair pasta or fideo 
+
+1 tablespoon chopped parsley, plus more for serving
+
+1 tablespoon lime or lemon juice, plus more as needed
+
+Lime or lemon slices, for serving
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+In a large pot, melt the butter over medium. Add the onion and cook, stirring frequently, until softened and translucent, about 5 minutes; you don’t want the onion to take on any color. Sprinkle in the turmeric and stir until fragrant, about 30 seconds. Add the potato and carrot, then stir and cook for 2 minutes.
+
+Step 2
+Adjust heat to medium-low and add the tomato paste. Cook, stirring frequently, until the tomato paste releases its color into the oil, 2 to 3 minutes.
+
+Step 3
+Place the chicken breast on top of the vegetables and season with 2 teaspoons salt and ¼ teaspoon pepper. Add 6 cups of water and stir. Partially cover, increase heat and bring to a boil, then cover completely, adjust heat to low and simmer gently for 40 minutes.
+
+Step 4
+After 40 minutes, transfer the chicken to a medium bowl and shred with two forks while the soup continues to simmer. Taste the soup and adjust salt as needed. Add the shredded chicken and vermicelli, stir and increase heat to bring the soup to a lively simmer. Cover, adjust heat to low and simmer until the noodles soften and the flavors come together, 10 minutes.
+
+Step 5
+Remove from the heat, stir in the parsley and lime juice and let sit, covered, for 5 to 10 minutes. Taste and adjust seasoning with more lime juice, salt or pepper as needed. Serve with lime slices and garnish with more parsley.
     `
   },
   {
     id: 48,
     tier: 2,
     group: 3,
-    name: 'Placeholder',
-    photo: '',
-    time: '',
+    name: 'Skirt Steak With Salsa Verde Salad',
+    photo: 'https://static01.nyt.com/images/2020/07/05/dining/lh-skirt-steak-with-salsa-verde-salad/lh-skirt-steak-with-salsa-verde-salad-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '35 min',
     cookTime: '',
-    xp: 0,
+    xp: 50,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+4 servings
+1 ½ pounds skirt steak
+
+½ cup extra-virgin olive oil
+
+¼ cup red-wine vinegar
+
+¼ cup thinly sliced scallions (about 2)
+
+2 tablespoons capers, drained and roughly chopped
+
+1 tablespoon minced garlic (about 2 large cloves)
+
+½ teaspoon kosher salt, plus more to taste
+
+½ teaspoon black pepper, plus more to taste
+
+2 tablespoons chopped fresh flat-leaf parsley
+
+2 tablespoons chopped fresh mint
+
+¼ cup toasted pine nuts
+
+2 romaine hearts
+
+½ cup crumbled feta cheese (about 3 ounces)
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+If necessary, cut the steak crosswise into large pieces that will fit into a shallow, nonreactive dish. Transfer the steaks to the dish. In a glass measuring cup or bowl, whisk together the olive oil, vinegar, scallions, capers, garlic, ½ teaspoon salt and ½ teaspoon pepper. Pour about ⅓ of the dressing (about ⅓ cup) over the steak and turn to coat both sides.
+
+Step 2
+Add the parsley and 1 tablespoon mint to the reserved dressing, stir, and set aside until ready to use. Cover and refrigerate the steak for at least 30 minutes or up to 24 hours. (If marinating the steak overnight, cover and refrigerate the reserved dressing.)
+
+Step 3
+In a small sauté pan set over medium heat, toast the pine nuts, tossing often, until golden brown, about 3 minutes. Set aside.
+
+Step 4
+Set the grill to medium-high heat, or heat a grill pan on the stovetop over medium-high. Pat the steaks dry with a paper towel and grill for 3 to 5 minutes on each side for medium-rare. Transfer to a plate, sprinkle with salt, and allow to rest for 10 minutes.
+
+Step 5
+While the steak rests, cut the romaine hearts lengthwise into quarters. Arrange the romaine hearts in one layer on a large platter, leaving room on one side for the steak. Sprinkle the feta, pine nuts and the remaining 1 tablespoon mint over the romaine. Slice the steak crosswise into 3-inch pieces, then slice against the grain to cut the steak into wide strips. Arrange the sliced steak on the platter, then drizzle the reserved dressing over the romaine and steak. Serve immediately.
     `
   },
  
@@ -2507,51 +2636,148 @@ Serve in the pan or on a warmed platter, garnished with the thyme.
     id: 49,
     tier: 2,
     group: 4,
-    name: 'Placeholder',
+    name: 'Sheet-Pan Chicken Chilaquiles',
     photo: '',
-    time: '',
+    time: '50 min',
     cookTime: '',
-    xp: 0,
+    xp: 50,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+4 Servings
+6 Roma tomatoes (1 ½ pounds), quartered
+
+1 small yellow onion, quartered
+
+3 garlic cloves, peeled and halved lengthwise
+
+1 jalapeño, stemmed and halved lengthwise
+
+1 ¼ cups low-sodium chicken broth
+
+5 dried Guajillo chile peppers (1 ounce), stemmed, seeded and torn into large pieces
+
+¼ cup safflower or canola oil
+
+2 teaspoons kosher salt (Diamond Crystal)
+
+½ teaspoon ground coriander
+
+8 ounces corn tortilla chips
+
+4 cups shredded rotisserie chicken (from 1 whole chicken)
+
+Finely chopped white onion, sliced radishes, chopped avocado, crumbled queso fresco, sour cream, chopped cilantro and pickled jalapeños, for serving
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+Place a rack 6 inches from the broiler heat source and heat to high. On a sheet pan, combine tomatoes, onion, garlic and jalapeño, and broil until lightly charred in spots, turning occasionally, about 10 minutes for the garlic and 15 to 20 minutes for the tomatoes, onion and jalapeño. (They should be lightly charred around the edges, but not all over). Transfer to a blender.
+
+Step 2
+Meanwhile, in a small saucepan combine the broth and dried chiles, and bring to a boil, stirring occasionally. Remove from heat and let stand while the tomatoes and vegetables broil.
+
+Step 3
+To the blender add the rehydrated chiles with broth, oil, salt and coriander, and purée until smooth.
+
+Step 4
+Heat oven to 425 degrees. On the same sheet pan (no need to wash), toss chips with 2 cups of the sauce and spread in an even layer. Toss the chicken with the remaining sauce and arrange on top of the chips. Roast until warmed through, about 5 minutes. Garnish with preferred toppings, and serve warm.
     `
   },
   {
     id: 50,
     tier: 2,
     group: 4,
-    name: 'Placeholder',
-    photo: '',
-    time: '',
+    name: 'Slow-Cooker Coconut Black Bean Soup',
+    photo: 'https://static01.nyt.com/images/2026/09/16/multimedia/SD-Spicy-Coconut-Black-Bean-Soup-tmkb/SD-Spicy-Coconut-Black-Bean-Soup-tmkb-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '4 hr',
     cookTime: '',
     xp: 0,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+6 servings
+1½ cups dried black beans (no need to soak)
+
+1 jalapeño, chopped
+
+⅓ cup drained pickled jalapeños, chopped 
+
+5 cloves garlic, smashed and chopped 
+
+1 tablespoon kosher salt (such as Diamond Crystal)
+
+4 cups water
+
+1 small bunch (10 to 14 ounces) kale, collards or mustard greens, leaves stripped from tough ribs and finely chopped 
+
+1 (13.5-ounce) can coconut milk
+
+Juice of 1 large lime, plus 1 lime sliced into wedges for serving (optional)
+
+1 tablespoon honey 
+
+Avocado, hot sauce and plantain chips, optional, for serving
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+Combine the beans, fresh and pickled jalepeños, garlic, salt and water in a 6- to 8-quart slow cooker. Lay the chopped greens on top, pressing them down into the water as much as possible. (They will not be totally submerged but the tops will steam.) Cook on high until the beans are tender, about 4 hours. (Timing may vary depending on the age of your beans and the temperament of your slow cooker.)
+
+Step 2
+Stir the greens into the beans and add the coconut milk, lime juice and honey. Using a fork, roughly smash some of the beans against the side of the cooker to thicken. Cover and cook for another 5 minutes to warm through. 
+
+Step 3
+Divide among bowls and serve, if desired, with lime wedges, sliced avocado, plantain chips and hot sauce on the side.
     `
   },
   {
     id: 51,
     tier: 2,
     group: 4,
-    name: 'Placeholder',
-    photo: '',
-    time: '',
+    name: 'Slow-Cooker Butternut Squash Soup',
+    photo: 'https://static01.nyt.com/images/2026/09/18/multimedia/SD-Slow-Cooker-Butternut-Squash-Soup-ptfb/SD-Slow-Cooker-Butternut-Squash-Soup-ptfb-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '6 hr',
     cookTime: '',
-    xp: 0,
+    xp: 50,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+6 servings
+1 medium butternut squash (2 ½ to 3 pounds), peeled, seeded and chopped
+
+1 small red onion, chopped
+
+1 large apple, such as Honeycrisp, peeled and chopped
+
+6 garlic cloves, smashed
+
+2 tablespoons olive oil
+
+1½ tablespoons kosher salt (such as Diamond Crystal)
+
+2½ teaspoons curry powder
+
+1 teaspoon crushed red pepper
+
+1 teaspoon cumin
+
+Black pepper
+
+3 cups water
+
+½ cup Greek yogurt, plus more for serving
+
+3 tablespoons mango chutney (see Tip)
+
+Pepitas, for topping (optional)
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+Combine the squash, onion, apple, garlic, olive oil, salt, curry powder, red pepper, cumin and several generous grinds of black pepper in a 6- to 8-quart slow cooker. Add the water, cover and cook on low until the squash is very tender, 5 to 6 hours.
+
+Step 2
+Add the yogurt and mango chutney and purée the soup using an immersion blender. (You can also use a regular blender, but be careful puréeing hot ingredients this way; if possible, let it cool a little first and purée in batches.) Divide among bowls and serve topped with more yogurt, if desired, and pepitas.
+
+
     `
   },
  
@@ -2560,51 +2786,280 @@ Serve in the pan or on a warmed platter, garnished with the thyme.
     id: 52,
     tier: 2,
     group: 5,
-    name: 'Placeholder',
-    photo: '',
-    time: '',
+    name: 'Lamb Shank Birria',
+    photo: 'https://static01.nyt.com/images/2026/09/11/multimedia/14FD-NATIONAL-LISTREX6-NYT-Lamb-Shank-Birria-jmqp/14FD-NATIONAL-LISTREX6-NYT-Lamb-Shank-Birria-jmqp-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '12 hr',
     cookTime: '',
-    xp: 0,
+    xp: 100,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+4 to 6 servings
+For the Spice Paste
+2½ teaspoons black peppercorns
+
+1 tablespoon cumin seeds
+
+4 star anise pods
+
+3 whole Mexican (Ceylon) cinnamon sticks (about 3 inches each), broken into a few pieces
+
+4 allspice berries
+
+2 whole cloves
+
+2 dried avocado leaves (hoja de aguacate) or dried bay leaves
+
+6 dried guajillo chiles, seeded
+
+3 dried mulato chiles, seeded
+
+9 dried puya chiles, seeded
+
+3 cups boiling water, plus more as needed
+
+For the Lamb
+1 cup lard
+
+1 large white onion (about 1 pound), chopped
+
+7 garlic cloves, chopped
+
+2 avocado leaves
+
+2 teaspoons dried Mexican oregano, plus more for garnish
+
+¼ cup grated piloncillo or light brown sugar
+
+½ cup cold brew coffee concentrate
+
+1 cup malt vinegar, divided
+
+4 meaty lamb shanks (4½ to 5 pounds total)
+
+2 limes, zested and juiced, plus more zest for garnish
+
+Kosher salt (such as Diamond Crystal)
+
+6 to 8 cups beef or lamb stock (1½ to 2 quarts)
+
+For serving
+Very thinly sliced white onion rings, rinsed in cold water and patted dry, for garnish
+
+Finely ground espresso powder, for garnish (optional)
+
+Warm corn tortillas and black beans (such as Frijoles de Olla), for serving (optional)
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+Make the spice paste: In a spice grinder, grind the peppercorns, cumin seeds, star anise, cinnamon sticks, allspice and cloves until finely ground; set aside.
+
+Step 2
+Heat a dry medium frying pan (not nonstick) or comal over medium-low heat. In batches, toast the avocado leaves and chiles in the pan, turning occasionally, until slightly softened, aromatic and a shade darker, 2 to 3 minutes per batch. Set aside the toasted avocado leaves, and transfer chiles to a large bowl and cover with 3 cups boiling water; let soak until softened, stirring occasionally, about 5 minutes.
+
+Step 3
+Using tongs, remove chiles from the bowl, reserving the soaking liquid. Transfer the chiles to a blender along with about ¾ cup of soaking liquid (reserving the remaining soaking liquid) and puree to make a thick paste.
+
+Step 4
+In a large pan, heat the lard over medium-high heat. Add the onions and cook, stirring occasionally, until golden brown and caramelized, about 15 minutes. Stir in the reserved ground spices and stir constantly until they release their fragrance and darken slightly, about 1 minute. Stir in the garlic and cook, stirring, for 1 minute.
+
+Step 5
+Add the chile paste and cook, stirring, for 1 minute. Add the toasted avocado leaves to the pot, along with 1¼ cups of the reserved chile soaking liquid. Bring to a gentle simmer, adjusting the heat if needed, then cover and gently simmer until the oil floats to the surface and the solids are deeply flavorful, about 40 minutes.
+
+Step 6
+Remove the avocado leaves, then stir in the oregano and piloncillo. Return the mixture to the blender and puree with the coffee and ½ cup of vinegar, adding a bit of water or more reserved chile soaking liquid if the mixture seems too thick. Strain through a fine-mesh sieve into a large bowl and set birria paste aside to cool.
+
+Step 7
+Make the lamb: Place the lamb in a large baking dish and rub with the remaining ½ cup vinegar and season with the lime zest and 2 tablespoons salt. Coat with the birria paste and refrigerate overnight, uncovered.
+
+Step 8
+When ready to cook, transfer the lamb along with any liquid in the dish to a large Dutch oven or other heavy pot and cover with stock (it’s fine if the lamb isn’t fully submerged). Bring to a simmer, then adjust the heat to the lowest simmer and braise until tender, about 2½ hours. Turn off the heat and let the shanks rest in the pot for 30 minutes. Pull the meat off the bone, reserving the consomé it cooked in.
+
+Step 9
+Adjust the seasoning of the consomé to taste with lime juice and salt. Serve the lamb with a generous amount of consomé, garnished with onion rings and a light dusting of lime zest, oregano and, if desired, ground espresso. Serve with warm corn tortillas and black beans, if you like.
     `
   },
   {
     id: 53,
     tier: 2,
     group: 5,
-    name: 'Placeholder',
-    photo: '',
-    time: '',
+    name: 'Tamales',
+    photo: 'https://static01.nyt.com/images/2023/10/26/multimedia/RM-tamales-zhwm/RM-tamales-zhwm-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '6 hr',
     cookTime: '',
-    xp: 0,
+    xp: 100,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+16 tamales
+2 ½ ounces/72 grams dried guajillo or New Mexico red chiles, stemmed and seeded (about 10 to 15, depending on size)
+
+3 dried chiles de árbol, stemmed (seeded for mild), or 1 teaspoon crushed red pepper
+
+1 large poblano pepper, stemmed, seeded and roughly chopped
+
+¼ medium white onion, roughly chopped (about ½ cup)
+
+1 head garlic, cloves separated and peeled
+
+½ teaspoon ground cinnamon 
+
+5 whole cloves
+
+4 dried bay leaves
+
+2 teaspoons dried oregano, preferably Mexican 
+
+1 teaspoon black peppercorns
+
+Kosher salt (such as Diamond Crystal)
+
+2 pounds boneless pork shoulder, trimmed of excess fat
+
+7 cups/805 grams masa harina, such as Maseca (If using fresh masa, see Tip.)
+
+1 cup lard, melted, or vegetable oil, plus more as needed
+
+30 dried corn husks (from a 1-pound bag)
+
+Fresh salsa and lime wedges, for serving
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+For the pork: Heat the oven to 250 degrees. In a large, heavy-bottomed pot or Dutch oven, layer guajillo, chiles de árbol, poblano, onion, garlic, cinnamon, cloves, bay leaves, oregano, peppercorns, 5 teaspoons salt, pork and ¾ cup water over medium-high heat. Bring mixture to a boil, cover pot and transfer to oven.
+
+Step 2
+Braise pork until it is very tender and shreds easily, 3 to 3 ½ hours. Let cool, uncovered, for 15 minutes, then transfer pork to a large bowl and skim fat from the sauce. Using a potato masher or two large forks, smash or pull pork to shred the meat.
+
+Step 3
+Transfer chile and spice mixture (including bay leaves) and the liquid to a blender and process until smooth. (It should be the consistency of a thick marinara sauce.) Transfer 2 cups of the sauce (leaving additional sauce in the blender to be used in the next step) to the shredded pork and stir until completely coated. Taste and season with salt, if necessary. (Filling can be made 3 days ahead. Store in an airtight container in the refrigerator.)
+
+Step 4
+To the blender, add water to the reserved chile sauce to make 1 ¼ cups total. Add 4 teaspoons of salt and process until the salt is dissolved. Set aside to add to the masa in Step 6.
+
+Step 5
+Soak corn husks in a large bowl of hot water until soft and pliable, about 15 minutes. Using your hands, swirl husks in water to loosen any silks or dirt. Drain, rinse and shake off excess water.
+
+Step 6
+Meanwhile, make the masa: Combine masa harina, 2 cups warm water, lard and reserved 1¼ cups salted chile sauce in a large bowl. Mix with your hands until well incorporated and the mixture is shiny and smooth, about 5 minutes. The texture should resemble a very thick hummus; if it appears crumbly, add water 2 tablespoons at a time and mix thoroughly until it reaches the correct texture.
+
+Step 7
+Clean your hands and slap the top of masa with your palm, immediately pulling your hand back. If masa doesn’t stick and your hand looks shiny, the dough is ready and has enough fat to prevent it from sticking to the corn husks. If the masa sticks, add another 2 tablespoons of lard and knead until incorporated; repeat slap test. If masa still sticks to your hand, repeat the process until you get there. (Another 2 tablespoons of lard should do it.)
+
+Step 8
+Assemble the tamales: Set aside 16 husks that are at least 6 inches across at the widest part. (Keep extra on hand in case of tears. Reserve smaller husks for lining the pot.) Place a husk on a work surface and open it so the wide end is closest to you. Scoop ½ cup masa in the center of the husk. Using the back of a spoon or your hands, pat masa into an even ⅓-inch-thick layer on the bottom half of the husk, leaving a ½-inch border on the edge closest to you, and allowing plenty of room at the top to fold down later.
+
+Step 9
+Place ⅓ cup of the pork filling down the center of the masa. Fold one long side of the husk over the filling, then the other. Fold the top end underneath. Set on a sheet pan seam-side up. Repeat with remaining tamales.
+
+Step 10
+Steam the tamales: Line a large, heavy-bottomed pot or Dutch oven, deep enough to fit the tamales upright, with reserved husks. Arrange tamales standing up with the folded ends on the bottom of the pot and the seams facing the wall of the pot. Continue stacking tamales around the perimeter, leaning them against one another to keep the ends folded in tightly. If the pot has extra space in the middle when all of the tamales have been added, fill it with a ball of aluminum foil. Carefully pour water into the pot until it comes about ¾-inch up the side. Bring to a boil over high, then reduce heat to a medium boil. Cover pot and cook tamales for 1 hour, undisturbed, adding more water as needed to keep the pot steaming.
+
+Step 11
+Check for doneness by removing one tamal from the pot; let cool for 3 minutes. (If you don’t let it rest before checking, masa will stick to the husk and appear gummy.) Remove the husk; it should peel back easily when it’s done. If masa sticks to the husk, it’s not ready. Refold and return tamal to the pot. Cook 5 minutes more and check again. Once tamales are done, turn off the heat, uncover and let tamales sit for 10 minutes before unwrapping.
+
+Step 12
+Serve tamales with salsa and lime wedges.
     `
   },
   {
     id: 54,
     tier: 2,
     group: 5,
-    name: 'Placeholder',
-    photo: '',
-    time: '',
+    name: 'Stephen Colbert’s Beef Wellington',
+    photo: 'https://static01.nyt.com/images/2024/11/19/multimedia/25-CELEB-THANKSGIVING-SC-Wellington-hbwv/25-CELEB-THANKSGIVING-SC-Wellington-hbwv-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
+    time: '2 hr',
     cookTime: '',
-    xp: 0,
+    xp: 100,
     desc: '[Placeholder recipe]',
     ingredients: `
-[PLACEHOLDER]
+Yield:
+Makes 12 servings
+FOR THE BEEF
+1 fully trimmed beef tenderloin (about 4 pounds)
+
+2 tablespoons olive oil
+
+FOR THE MUSHROOM SPREAD (A.K.A. DUXELLES)
+3 tablespoons butter
+
+3 small shallots, minced
+
+1 pound button mushrooms, sliced
+
+Salt and freshly ground pepper
+
+FOR THE ASSEMBLY
+30 slices prosciutto (about ½ pound; ask that the prosciutto be sliced a tiny bit thicker than usual)
+
+Salt and freshly ground pepper
+
+3 tablespoons Dijon mustard, or as needed
+
+1 (17.3-ounce) box frozen puff pastry (2 sheets)
+
+1 egg, well beaten with 1 tablespoon water, for egg wash
+
+FOR THE PORT WINE REDUCTION
+1 tablespoon extra-virgin olive oil
+
+1 large shallot, minced
+
+1 apple, cored and roughly chopped
+
+1 medium carrot, peeled and roughly chopped
+
+1 (750-milliliter) bottle dry red wine
+
+6 to 8 thyme sprigs, tied in a small bouquet with kitchen twine
+
+1 cup tawny port
+
+1 cup beef or chicken broth, homemade or store-bought
+
+4 tablespoons unsalted butter, cut into 4 pieces
+
+Salt and freshly ground pepper
     `,
     steps: `
-[PLACEHOLDER]
+Step 1
+Prep and sear the beef: Cut the tenderloin in half crosswise. One half will have a thinner, tapered end (a.k.a. the “tail”); tuck the “tail” of the tenderloin underneath and tie with several lengths of kitchen twine. You should now have two pieces of tenderloin of approximately the same thickness.
+
+Step 2
+Heat the olive oil in a large, heavy skillet over medium-high. Sear the pieces of tenderloin one at a time, until very well browned on all sides, including the ends; add some fresh oil before searing the second piece. Let the beef cool while you continue your prep.
+
+Step 3
+Make the mushroom spread (duxelles): Heat the butter in a large sauté pan over medium until foaming. Stir in the shallots and cook until wilted, about 3 minutes. Stir in the mushrooms and cook until the liquid the mushrooms give off has evaporated and the mushrooms are browned, about 12 minutes. Scrape the mix into a food processor and pulse to a spreadable consistency. Scrape into a bowl, season with salt and pepper, and set aside to cool. (To make ahead, refrigerate the mushroom spread for up to 2 days.)
+
+Step 4
+Assemble the Wellingtons: Tear off two pieces of plastic wrap that are about 2 inches longer than the tenderloin piece you’re starting with. Overlap the wrap to make a large square. Shingle half the prosciutto slices over the center of the plastic wrap. The area you cover with prosciutto should be a little longer than the tenderloin (on both ends) and wide enough to completely wrap around the tenderloin.
+
+Step 5
+Spread half the mushroom duxelles over the prosciutto. Cut and remove twine from the cooled beef and season generously with salt and pepper. Smear beef with enough Dijon mustard to coat it lightly. Center the beef over the prosciutto and roll up, completely encasing the beef. Twist the ends of the plastic like the wrapper on a hard candy and tuck under the beef roll. Repeat this process with the other piece of tenderloin and the remaining prosciutto and duxelles. Refrigerate the wrapped beef overnight.
+
+Step 6
+One hour before roasting, remove the tenderloin rolls from the fridge and then unwrap and discard the plastic wrapping. Move the puff pastry from the freezer to the counter, so it will be defrosted when it comes time to wrap the tenderloins (the pastry may need 15 minutes extra thawing after the sheets are separated).
+
+Step 7
+While the beef and puff pastry are resting, start the port wine reduction: Heat the olive oil in a 2-quart saucepan over medium. Stir in the shallot, and after it takes on some color, 5 to 6 minutes, add the apple and carrot. Stir until the apple starts releasing some liquid and the carrot is beginning to soften. Pour in the full bottle of red wine, add the thyme bouquet, bring to a simmer and simmer until the wine is reduced by half. Strain and return to the clean pan.
+
+Step 8
+Add the port and broth, bring to a slow boil, and boil until the liquid has reduced by half again. Remove the sauce from the heat and whisk in the butter piece by piece. Season with salt and pepper. (To make the port wine reduction in advance, prepare as directed but omit the butter; refrigerate for up to 2 days. When ready to serve, warm gently and then whisk in the butter.)
+
+Step 9
+When the beef and puff pastry have stood at room temperature for an hour, heat the oven to 450 degrees with a rack in the lower-third position. Roll out one sheet of puff pastry on a lightly floured countertop to a rectangle about 1 ½ inches longer than the first beef-prosciutto roll and wide enough to overlap slightly when wrapped around it. Bring the sides of the pastry up to meet over the tenderloin and pinch them together to seal. Turn the roll seam-side down.
+
+Step 10
+Trim some of the pastry from the ends if necessary, so there is just enough to tuck the ends underneath and make a compact roll with nice smooth ends; refrigerate the dough trimmings. Using the tip of a paring knife, make 1 ½-inch slits, about 1 inch apart, down the top. Carefully move the Wellington to a baking sheet large enough to hold both finished Wellingtons. Repeat with the second piece of tenderloin and the remaining pastry.
+
+Step 11
+Brush the Wellingtons well with the egg wash. Press the scraps of dough together, roll them out, and use cutters to make decorative shapes. (Leaf shapes are nice.) Decorate the tops of the Wellingtons with these cutouts and brush again with egg.
+
+Step 12
+Roast the Wellingtons for 20 minutes, tenting them loosely with foil after they turn a nice golden brown. Rotate the baking sheet and continue roasting until the beef is 125 degrees at the center of the thickest point, about 15 additional minutes. (You really need a thermometer for this one!) Transfer the beef to a wire rack and let stand for 20 minutes before serving.
+
+Step 13
+To serve: Carve the Wellingtons into 1-inch-thick slices (you can use the slits you cut on top as a rough guide). Carefully lift the slices onto plates and spoon a little of the port wine sauce over and around each one.
     `
   }
 ];

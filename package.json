@@ -12,6 +12,6 @@
   "type": "commonjs",
   "dependencies": {
     "@google/genai": "^2.24.0",
-    "openai": "^7.23.0"
+    "openai": "^7.30.1"
   }
 }

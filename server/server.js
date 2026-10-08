@@ -10,24 +10,23 @@ app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 const MODEL = "gemini-3.8-flash";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY
+import OpenAI from "openai";
+const ai = new OpenAI({
+  apiKey: process.env.OPENAI
 });
-
 app.get("/", (req, res) => {
     res.send("Chyve backend is running!");
 });
 
 app.post("/api/test", async (req, res) => {
-    const interaction = await ai.interactions.create({
+    const interaction = await ai.responses.create({
     model: "gemini-3.8-flash",
     input: "respond with valid json with a string containing the word: ok inside of it.",
     });
     res.json({
         success: true,
         message: "Backend works!",
-        interaction: interaction.output_text
+        interaction: response.output_text
     });
 });
 app.post("/api/check", async (req, res) => {
@@ -38,7 +37,7 @@ app.post("/api/check", async (req, res) => {
         return res.status(400).json({ error: "recipe and photo are required" });
     }
     console.log(recipe, photo)
-    const interaction = await ai.interactions.create({
+    const interaction = await ai.responses.create({
     model: "gemini-3.8-flash",
     input: [
     { type: "text", text: `You are the dish-completion checker for Chyve, a cooking app.
@@ -141,7 +140,7 @@ app.post("/api/moderate", async (req, res) => {
     if (!name || !ingredients || !instructions || !photo) {
         return res.status(400).json({ error: "name, ingredients, instructions and photo are required" });
     }
-    const interaction = await ai.interactions.create({
+    const interaction = await ai.responses.create({
     model: "gemini-3.8-flash",
     input: [
     { type: "text", text: `${MODERATION_PROMPT}
@@ -177,7 +176,7 @@ app.post('/api/macros', async (req, res) => {
   if (!ingredients) return res.status(400).json({ error: 'No ingredients' });
   const prompt = `Estimate nutrition PER SERVING using ONLY this ingredient list. If a "Yield" line is given, divide by that many servings; otherwise infer a sensible serving count from the quantities. Reply with JSON only: {"servings":n,"calories":n,"protein":n,"carbs":n,"fat":n,"saturatedFat":n,"fiber":n,"sugar":n,"sodium":n,"cholesterol":n} (grams, except calories, and sodium and cholesterol in mg).${ingredients}`;
   try {
-    const interaction = await ai.interactions.create({
+    const interaction = await ai.responses.create({
       model: MODEL,
       input: prompt
     });
