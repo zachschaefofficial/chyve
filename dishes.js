@@ -2637,7 +2637,7 @@ While the steak rests, cut the romaine hearts lengthwise into quarters. Arrange 
     tier: 2,
     group: 4,
     name: 'Sheet-Pan Chicken Chilaquiles',
-    photo: '',
+    photo: 'https://static01.nyt.com/images/2021/10/08/dining/kc-sheet-pan-chicken-chilaquiles/merlin_195006765_18396eb0-d008-475a-a0ec-1ed9a3267028-superJumbo.jpg?format=pjpg&quality=75&auto=webp&disable=upscale',
     time: '50 min',
     cookTime: '',
     xp: 50,
