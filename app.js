@@ -597,11 +597,15 @@ function render(scrollTop){
   viewShouldAnimate = navigated;
   if(scrollTop === undefined) scrollTop = navigated;
   const root = document.getElementById('root');
-  if(screen==='landing') root.innerHTML = renderLanding();
-  else if(screen==='login') root.innerHTML = renderAuth('login');
-  else if(screen==='signup') root.innerHTML = renderAuth('signup');
-  else if(screen==='app') root.innerHTML = renderApp();
-  else if(screen==='plans') root.innerHTML = renderPlans();
+  if(screen==='landing'){
+    if(!window.ChyveLanding || !window.ChyveLanding.mount(root)) root.innerHTML = renderLanding();
+  } else {
+    if(window.ChyveLanding) window.ChyveLanding.unmount();
+    if(screen==='login') root.innerHTML = renderAuth('login');
+    else if(screen==='signup') root.innerHTML = renderAuth('signup');
+    else if(screen==='app') root.innerHTML = renderApp();
+    else if(screen==='plans') root.innerHTML = renderPlans();
+  }
   if(scrollTop) window.scrollTo(0,0);
 }
 /* =========================================================
