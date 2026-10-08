@@ -1968,8 +1968,10 @@ function finalizeDish(dishId){
   const dish = findDish(dishId);
   if(!dish || dishCompleted(s, dish.id)) return;
  
+  const prevLevel = levelIndex(s.xp);
   s.completed.push(dish.id);
   s.xp += dish.xp;
+  const newLevel = levelIndex(s.xp);
   if(!dish.community) s.currentGroup = currentPathGroup(s);
  
   const today = todayStr();
