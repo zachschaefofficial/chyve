@@ -100,6 +100,40 @@ async function getRecipeData(id){
   const docSnap = await getDoc(docRef);
   return { data: docSnap.data() };
 }
+async function addRecipeComment({ recipeId, recipeName, text, attachPhoto }) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Sign in to leave a comment.");
+  const cleanText = String(text || "").trim();
+  if (!cleanText) throw new Error("Write a comment first.");
+  if (cleanText.length > 1000) throw new Error("Comments must be 1,000 characters or fewer.");
+  const userSnap = await getDoc(doc(db, "users", user.uid));
+  if (!userSnap.exists() || userSnap.data().banned === true) throw new Error("Your account cannot comment.");
+  const id = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  const recipeSnap = await getDoc(doc(db, "recipes", String(recipeId)));
+  const recipe = recipeSnap.exists() ? recipeSnap.data() : {};
+  const attach = attachPhoto === true && recipe.authorUid === user.uid;
+  const record = {
+    id, recipeId: String(recipeId), recipeName: String(recipeName || recipe.name || "Recipe"),
+    uid: user.uid, username: String(userSnap.data().username || userSnap.data().displayName || "Cook"),
+    text: cleanText, createdAt: Date.now(), photoData: attach ? String(recipe.photo || "") : ""
+  };
+  await setDoc(doc(db, "recipeComments", id), record);
+  return record;
+}
+async function listRecipeComments(recipeId) {
+  const snap = await getDocs(query(collection(db, "recipeComments"), where("recipeId", "==", String(recipeId))));
+  return snap.docs.map(d => ({ ...d.data(), id: d.id })).filter(c => c.takenDown !== true).sort((a,b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+async function listCommentsForAdmin(actingUid) {
+  await assertAdmin(actingUid);
+  const snap = await getDocs(collection(db, "recipeComments"));
+  return snap.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+async function takeDownRecipeComment(commentId, actingUid) {
+  await assertAdmin(actingUid);
+  await updateDoc(doc(db, "recipeComments", String(commentId)), { takenDown: true, takenDownAt: Date.now(), takenDownBy: (auth.currentUser && auth.currentUser.uid) || actingUid });
+  return { takenDown: true };
+}
 /* Views and completions live on the recipe document ({ views, completions }).
    Each signed-in view or completion adds 1 with Firestore increment() so every
    client sees the same shared counts. */
@@ -422,6 +456,10 @@ window.getUserData = getUserData;
 window.editUserData = editUserData;
 window.createRecipe = createRecipe;
 window.getRecipeData = getRecipeData;
+window.addRecipeComment = addRecipeComment;
+window.listRecipeComments = listRecipeComments;
+window.listCommentsForAdmin = listCommentsForAdmin;
+window.takeDownRecipeComment = takeDownRecipeComment;
 window.editRecipeData = editRecipeData;
 window.listApprovedRecipes = listApprovedRecipes;
 window.incrementRecipeStat = incrementRecipeStat;

@@ -137,6 +137,10 @@ let adminUserId = null;       // uid of the user whose completions the admin is 
 let adminCompletions = null;  // that user's completion records (null = still loading)
 let adminBusy = false;        // a ban / unban request is running
 let adminError = '';
+let recipeComments = [];
+let recipeCommentsLoading = false;
+let commentPhotoChecked = false;
+let adminComments = null;
 let groupFormOpen = false;
 let joinCodeInput = '';
 let activeGroupId = null;
@@ -769,6 +773,7 @@ function communityDishFromCloud(raw){
     steps,
     community: true,
     author: raw.author || '',
+    authorUid: raw.authorUid || '',
     approved: raw.approved === true,
     views: Number(raw.views) || 0,
     completions: Number(raw.completions) || 0,
@@ -1583,6 +1588,10 @@ function openDish(id){
   loadCompletions(id);
   recordDishView(id).then(recorded => { if(recorded) loadCompletions(id); });
   activeDishId = id;
+  commentPhotoChecked = false;
+  const openedDish = findDish(id);
+  if(openedDish && openedDish.community) loadRecipeComments(id);
+  else recipeComments = [];
   dishStage = 'overview';
   avatarOpen = false;
   activeYieldAmount = null;
@@ -1668,8 +1677,45 @@ function renderOverviewPage(dish, s){
         <button type="button" class="btn btn-gold" onclick="startCooking()">${done ? 'View recipe again' : 'Start cooking'} →</button>
         ${currentUserIsAdmin() && dish.community ? `<button type="button" class="btn btn-ghost btn-take-down" onclick="takeDownRecipe('${jsStr(String(dish.id))}')">Take down recipe</button>` : ''}
       </div>
+      ${dish.community ? renderRecipeComments(dish) : ''}
     </div>
   `;
+}
+
+function renderRecipeComments(dish){
+  const canAttachRecipePhoto = !!(safePhotoSrc(dish.photo) && users[currentUser] && users[currentUser].uid && users[currentUser].uid === dish.authorUid);
+  return `<section class="recipe-comments">
+    <h3>Community comments</h3>
+    ${currentUser ? `<form class="comment-form" onsubmit="submitRecipeComment(event, '${jsStr(String(dish.id))}')">
+      <label for="recipe-comment-text">Add a comment</label>
+      <textarea id="recipe-comment-text" maxlength="1000" required placeholder="What did you think of this recipe?"></textarea>
+      ${canAttachRecipePhoto ? `<label class="comment-photo-option"><input id="comment-attach-photo" type="checkbox" ${commentPhotoChecked ? 'checked' : ''} onchange="commentPhotoChecked=this.checked"> Attach the recipe photo you uploaded</label>` : ''}
+      <button class="btn btn-ghost btn-small" type="submit">Post comment</button>
+    </form>` : `<p class="comment-login-note">Sign in to leave a comment.</p>`}
+    ${recipeCommentsLoading ? '<p class="admin-empty">Loading comments…</p>' : ''}
+    ${!recipeCommentsLoading && !recipeComments.length ? '<p class="comment-login-note">No comments yet.</p>' : ''}
+    <div class="recipe-comment-list">${recipeComments.map(c => `<article class="recipe-comment">
+      <div class="recipe-comment-head"><b>${esc(c.username || 'Cook')}</b><time>${esc(c.createdAt ? new Date(c.createdAt).toLocaleString() : '')}</time></div>
+      <p>${esc(c.text)}</p>${c.photoData ? `<img class="comment-photo" src="${esc(safePhotoSrc(c.photoData))}" alt="Recipe photo attached by ${esc(c.username || 'cook')}" loading="lazy">` : ''}
+    </article>`).join('')}</div>
+  </section>`;
+}
+async function loadRecipeComments(recipeId){
+  recipeCommentsLoading = true; recipeComments = [];
+  try{ await waitRecipes(); recipeComments = await window.listRecipeComments(recipeId); }
+  catch(e){ console.error('Could not load comments:', e); }
+  recipeCommentsLoading = false;
+  if(String(activeDishId) === String(recipeId) && dishStage === 'overview') render(false);
+}
+async function submitRecipeComment(e, recipeId){
+  e.preventDefault();
+  const text = document.getElementById('recipe-comment-text')?.value || '';
+  try{
+    await waitRecipes();
+    const dish = findDish(recipeId);
+    const comment = await window.addRecipeComment({ recipeId, recipeName: dish && dish.name, text, attachPhoto: !!document.getElementById('comment-attach-photo')?.checked });
+    recipeComments.push(comment); commentPhotoChecked = false; render(false);
+  }catch(err){ showNotice(err.message || 'Could not post your comment.'); }
 }
  
 /* ---------- Cooking page: checkable ingredients + instructions ---------- */
@@ -3169,6 +3215,7 @@ async function adminLoad(){
   try{
     await waitFirestore();
     adminUsers = await window.listUsersForAdmin(adminActingUid());
+    adminComments = await window.listCommentsForAdmin(adminActingUid());
   }catch(e){
     console.error('Could not load users:', e);
     adminError = (e && e.message) ? e.message : 'Could not load users.';
@@ -3214,13 +3261,35 @@ function renderAdmin(){
   <div class="admin-wrap">
     <div class="admin-head">
       <h2>Admin</h2>
-      <p class="admin-sub">${adminUsers ? adminUsers.length + ' users' : 'Users'} — click one to review their completed recipes.</p>
+    <p class="admin-sub">${adminUsers ? adminUsers.length + ' users' : 'Users'} — click one to review their completed recipes.</p>
+    <h3 class="admin-section-title">Community comments</h3>
+    ${renderAdminComments()}
+    <h3 class="admin-section-title">Users</h3>
     </div>
     <input id="admin-search" class="admin-search" type="search" placeholder="Search by username, name, or email" value="${esc(adminQuery)}" oninput="adminSearch(this.value)" autocomplete="off">
     ${adminError ? `<p class="admin-error">${esc(adminError)}</p>` : ''}
     ${adminLoading && !adminUsers ? '<p class="admin-empty">Loading users…</p>' : ''}
     <div id="admin-user-list" class="admin-user-list">${renderAdminRows()}</div>
   </div>`;
+}
+function renderAdminComments(){
+  const rows = (adminComments || []).filter(c => c.takenDown !== true);
+  if(!adminComments) return '<p class="admin-empty">Loading comments…</p>';
+  if(!rows.length) return '<p class="admin-empty">No community comments.</p>';
+  return `<div class="admin-comment-list">${rows.map(c => `<article class="admin-comment-card">
+    <div><b>${esc(c.username || 'Cook')}</b> on <b>${esc(c.recipeName || 'Community recipe')}</b><span class="admin-comment-date">${esc(c.createdAt ? new Date(c.createdAt).toLocaleString() : '')}</span></div>
+    <p>${esc(c.text)}</p>${c.photoData ? `<img src="${esc(safePhotoSrc(c.photoData))}" alt="Photo attached to comment" loading="lazy">` : ''}
+    <button type="button" class="btn btn-ghost btn-take-down btn-small" onclick="adminTakeDownComment('${jsStr(c.id)}')">Take down comment</button>
+  </article>`).join('')}</div>`;
+}
+async function adminTakeDownComment(id){
+  try{
+    await waitFirestore();
+    await window.takeDownRecipeComment(id, adminActingUid());
+    adminComments = (adminComments || []).map(c => c.id === id ? { ...c, takenDown: true } : c);
+    recipeComments = recipeComments.filter(c => c.id !== id);
+    render(false);
+  }catch(e){ showNotice(e.message || 'Could not take down that comment.'); }
 }
 async function adminOpenUser(uid){
   adminUserId = uid;
