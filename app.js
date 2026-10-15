@@ -1081,8 +1081,128 @@ function findAccount(identifier){
   return users[raw] ? { username: raw, account: users[raw] } : null;
 }
 
+/* ---------- Step 2 of password login: 6-digit email code ----------
+   After the password is accepted, the user is NOT let in yet. requireLoginCode()
+   emails a code (POST /api/email) and shows the code screen; only when
+   /api/verify accepts the code is the stored finish() callback run, which is
+   what actually signs the user in. */
+function maskEmail(email){
+  const parts = String(email || '').split('@');
+  if(parts.length !== 2) return '';
+  const name = parts[0];
+  return name.slice(0, 1) + '***@' + parts[1];
+}
+function focusCodeInput(){
+  setTimeout(function(){ const el = document.getElementById('auth-code'); if(el) el.focus(); }, 0);
+}
+function requireLoginCode(username, email, finish, isResend){
+  const prev = window.__codeStep;
+  window.__codeStep = { username: username, email: email, finish: finish, token: (isResend && prev && prev.token) || '' };
+  window.__authBusy = true;
+  window.__authError = '';
+  window.__authStatus = '';
+  render();
+  const fail = function(message){
+    window.__authBusy = false;
+    window.__authError = message;
+    if(!isResend) window.__codeStep = null;
+    render();
+    if(window.__codeStep) focusCodeInput();
+  };
+  if(typeof window.apiSendLoginCode !== 'function'){
+    fail('Verification is still loading. Please try again in a moment.');
+    return;
+  }
+  window.apiSendLoginCode(email).then(function(r){
+    if(!window.__codeStep) return;
+    window.__codeStep.token = r.token;
+    window.__authBusy = false;
+    window.__authError = '';
+    window.__authStatus = (isResend ? 'New code sent to ' : 'We emailed a 6-digit code to ') + maskEmail(email) + '.';
+    render();
+    focusCodeInput();
+  }).catch(function(err){
+    console.error('Could not send login code:', err);
+    fail((err && err.message) || 'Could not send the verification code. Please try again.');
+  });
+}
+function renderCodeStep(){
+  const s = window.__codeStep || {};
+  return `
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <button class="auth-back" onclick="cancelLoginCode()">← Back</button>
+      <div class="brand">Chyve</div>
+      <p class="auth-sub">Enter the 6-digit verification code we sent to ${esc(maskEmail(s.email))}.</p>
+      ${window.__authError ? `<div class="auth-error">${esc(window.__authError)}</div>` : ''}
+      ${window.__authStatus ? `<div class="auth-error" style="border-color:rgba(126,209,160,0.65);color:var(--vine-light);background:rgba(79,169,124,0.12);">${esc(window.__authStatus)}</div>` : ''}
+      ${window.__authBusy ? `<div class="auth-error" style="border-color:rgba(126,209,160,0.35);color:var(--vine-light);background:rgba(79,169,124,0.12);">Reaching the Chyve…</div>` : ''}
+      <form onsubmit="return handleCodeSubmit(event)">
+        <div class="field">
+          <label for="auth-code">Verification code</label>
+          <input id="auth-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="123456" style="letter-spacing:8px;text-align:center;font-size:1.4rem;" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" ${window.__authBusy ? 'disabled' : ''}>Verify</button>
+      </form>
+      <div class="auth-switch">
+        Didn't get it? <button onclick="resendLoginCode()">Resend code</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function handleCodeSubmit(e){
+  e.preventDefault();
+  const s = window.__codeStep;
+  if(!s || window.__authBusy || !s.token) return false;
+  const input = document.getElementById('auth-code');
+  const code = String((input && input.value) || '').replace(/\D/g, '');
+  if(code.length !== 6){
+    window.__authError = 'Enter the 6-digit code.';
+    window.__authStatus = '';
+    render();
+    focusCodeInput();
+    return false;
+  }
+  window.__authBusy = true;
+  window.__authError = '';
+  window.__authStatus = '';
+  render();
+  try{
+    const r = await window.apiVerifyLoginCode(s.email, code, s.token);
+    window.__authBusy = false;
+    if(r.verified){
+      window.__codeStep = null;
+      window.__authError = '';
+      window.__authStatus = '';
+      s.finish();
+      return false;
+    }
+    window.__authError = r.error || 'Incorrect code. Try again.';
+  }catch(err){
+    console.error('Code verification failed:', err);
+    window.__authBusy = false;
+    window.__authError = 'Could not verify the code. Please try again.';
+  }
+  render();
+  focusCodeInput();
+  return false;
+}
+function resendLoginCode(){
+  const s = window.__codeStep;
+  if(!s || window.__authBusy) return;
+  requireLoginCode(s.username, s.email, s.finish, true);
+}
+function cancelLoginCode(){
+  window.__codeStep = null;
+  window.__authBusy = false;
+  window.__authError = '';
+  window.__authStatus = '';
+  render();
+}
+
 function renderAuth(mode){
   const isLogin = mode==='login';
+  if(isLogin && window.__codeStep) return renderCodeStep();
   return `
   <div class="auth-wrap">
     <div class="auth-card">
@@ -1141,6 +1261,17 @@ function handleAuthSubmit(e, mode){
         loginLocalAfterBanCheck(found.username);
         return false;
       }
+      if(found.account.email){
+        // Local account with an email: password alone isn't enough, ask for the emailed code.
+        const localName = found.username;
+        requireLoginCode(localName, found.account.email, function(){
+          currentUser = localName;
+          screen='app'; appView='path'; activeDishId=null; dishStage='overview';
+          persistLocal();
+          render();
+        });
+        return false;
+      }
       currentUser = found.username;
     } else {
       window.__authBusy = true;
@@ -1195,6 +1326,7 @@ function handleAuthSubmit(e, mode){
  
 function goTo(where){
   window.__authError='';
+  window.__codeStep = null;
   screen = where;
   render();
 }
@@ -1403,12 +1535,20 @@ async function loginFromCloud(identifier, password){
       return;
     }
     users[username] = { ...data, username: data.username || username, admin: data.admin === true };
-    currentUser = username;
-    window.__authBusy = false;
-    window.__authError = '';
-    screen = 'app'; appView = 'path'; activeDishId = null; dishStage = 'overview';
-    persistLocal();
-    render();
+    const finishLogin = function(){
+      currentUser = username;
+      window.__authBusy = false;
+      window.__authError = '';
+      screen = 'app'; appView = 'path'; activeDishId = null; dishStage = 'overview';
+      persistLocal();
+      render();
+    };
+    const accountEmail = data.email || users[username].email;
+    if(accountEmail){
+      requireLoginCode(username, accountEmail, finishLogin);
+      return;
+    }
+    finishLogin();
   }catch(e){
     window.__authError = 'Could not reach the cloud. Try again.';
     window.__authBusy = false;
@@ -3164,12 +3304,20 @@ async function loginLocalAfterBanCheck(username){
       return;
     }
     if(data) users[username] = { ...users[username], admin: data.admin === true };
-    currentUser = username;
-    window.__authBusy = false;
-    window.__authError = '';
-    screen = 'app'; appView = 'path'; activeDishId = null; dishStage = 'overview';
-    persistLocal();
-    render();
+    const finishLogin = function(){
+      currentUser = username;
+      window.__authBusy = false;
+      window.__authError = '';
+      screen = 'app'; appView = 'path'; activeDishId = null; dishStage = 'overview';
+      persistLocal();
+      render();
+    };
+    const accountEmail = (data && data.email) || acct.email;
+    if(accountEmail){
+      requireLoginCode(username, accountEmail, finishLogin);
+      return;
+    }
+    finishLogin();
   }catch(e){
     console.error(e);
     window.__authBusy = false;

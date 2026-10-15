@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import { GoogleGenAI } from "@google/genai";
+import crypto from "crypto";
+import { Resend } from "resend";
 
 const app = express();
 
@@ -28,6 +30,101 @@ app.post("/api/test", async (req, res) => {
         message: "Backend works!",
         interaction: response.output_text
     });
+});
+/* ---------- 6-digit email verification codes ----------
+   /api/email  generates a code, emails it, and returns only a signed token.
+   /api/verify checks the code the user typed against that token.
+   The code itself is NEVER sent back to the browser. The token holds only an
+   expiry and an HMAC of (email | code | expiry), so it can't be reversed into
+   the code, and it works on serverless hosts with no database. */
+const resend = new Resend(process.env.RESEND_API_KEY);
+const CODE_SECRET = process.env.CODE_SECRET || process.env.RESEND_API_KEY || "";
+const CODE_TTL_MS = 10 * 60 * 1000;      // codes last 10 minutes
+const RESEND_COOLDOWN_MS = 30 * 1000;    // min gap between emails to one address
+const MAX_CODE_ATTEMPTS = 5;             // wrong guesses allowed per code
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const lastCodeSentAt = new Map();        // email -> timestamp (best effort, per server instance)
+const codeAttempts = new Map();          // token -> wrong guesses so far
+const usedTokens = new Set();            // tokens that already verified successfully
+
+const signCode = (email, code, exp) =>
+  crypto.createHmac("sha256", CODE_SECRET).update(`${email}|${code}|${exp}`).digest("hex");
+
+app.post("/api/email", async (req, res) => {
+  try {
+    const email = String((req.body || {}).email || (req.body || {}).to || "").trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) return res.status(400).json({ error: "A valid email is required." });
+    if (!CODE_SECRET) {
+      console.error("/api/email: set CODE_SECRET (or RESEND_API_KEY) in the server environment.");
+      return res.status(500).json({ error: "Could not send the code." });
+    }
+
+    const now = Date.now();
+    const last = lastCodeSentAt.get(email) || 0;
+    if (now - last < RESEND_COOLDOWN_MS) {
+      return res.status(429).json({ error: "Please wait a few seconds before requesting another code." });
+    }
+    lastCodeSentAt.set(email, now);
+
+    const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+    const exp = now + CODE_TTL_MS;
+
+    const { error } = await resend.emails.send({
+      from: "Chyve <noreply@chyve.app>",
+      to: [email],
+      subject: "Chyve Verification Code",
+      html: `<h1>Verify your email</h1><p>Your 6-digit verification code is:</p><div style="font-size:34px; line-height:1.4; font-weight:800; letter-spacing:8px; color:#315c3b;">${code}</div><p>This code expires in 10 minutes. If you didn't try to sign in to Chyve, you can ignore this email.</p>`,
+    });
+    if (error) {
+      console.error("/api/email resend error:", error);
+      lastCodeSentAt.delete(email);
+      return res.status(500).json({ error: "Could not send the code." });
+    }
+
+    res.json({ success: true, token: `${exp}.${signCode(email, code, exp)}` });
+  } catch (err) {
+    console.error("/api/email failed:", err);
+    res.status(500).json({ error: "Could not send the code." });
+  }
+});
+
+app.post("/api/verify", (req, res) => {
+  try {
+    const email = String((req.body || {}).email || "").trim().toLowerCase();
+    const code = String((req.body || {}).code || "").trim();
+    const token = String((req.body || {}).token || "");
+    const [expStr, sig] = token.split(".");
+    const exp = Number(expStr);
+
+    if (!EMAIL_RE.test(email) || !/^\d{6}$/.test(code) || !sig || !exp) {
+      return res.status(400).json({ verified: false, error: "Enter the 6-digit code." });
+    }
+    if (usedTokens.has(token)) {
+      return res.status(400).json({ verified: false, error: "That code was already used. Request a new one." });
+    }
+    if (Date.now() > exp) {
+      return res.status(400).json({ verified: false, expired: true, error: "That code has expired. Request a new one." });
+    }
+    const attempts = codeAttempts.get(token) || 0;
+    if (attempts >= MAX_CODE_ATTEMPTS) {
+      return res.status(429).json({ verified: false, expired: true, error: "Too many wrong attempts. Request a new code." });
+    }
+
+    const expected = Buffer.from(signCode(email, code, exp), "hex");
+    const given = Buffer.from(sig, "hex");
+    const ok = given.length === expected.length && crypto.timingSafeEqual(given, expected);
+    if (!ok) {
+      codeAttempts.set(token, attempts + 1);
+      return res.status(400).json({ verified: false, error: "Incorrect code. Try again." });
+    }
+
+    codeAttempts.delete(token);
+    usedTokens.add(token);
+    res.json({ verified: true });
+  } catch (err) {
+    console.error("/api/verify failed:", err);
+    res.status(500).json({ verified: false, error: "Could not verify the code." });
+  }
 });
 app.post("/api/check", async (req, res) => {
   try {

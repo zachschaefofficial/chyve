@@ -451,6 +451,28 @@ async function apiEstimateMacros(ingredients) {
     clearTimeout(timer);
   }
 }
+/* ---------- 6-digit sign-in code (second step after email + password) ----------
+   apiSendLoginCode(email)  -> { token }   emails a fresh code; keep the token for the next call
+   apiVerifyLoginCode(email, code, token) -> { verified, expired, error } */
+async function apiSendLoginCode(email) {
+  const response = await fetch(CHYVE_API_URL + "/api/email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: String(email || "").trim().toLowerCase() })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.token) throw new Error(data.error || "Could not send the code.");
+  return { token: data.token };
+}
+async function apiVerifyLoginCode(email, code, token) {
+  const response = await fetch(CHYVE_API_URL + "/api/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: String(email || "").trim().toLowerCase(), code: String(code || "").trim(), token: token })
+  });
+  const data = await response.json().catch(() => ({}));
+  return { verified: data.verified === true, expired: data.expired === true, error: data.error || "" };
+}
 window.createUser = createUser;
 window.getUserData = getUserData;
 window.editUserData = editUserData;
@@ -477,3 +499,5 @@ window.signOutFirebase = signOutFirebase;
 window.apiCheck = apiCheck;
 window.apiModerateRecipe = apiModerateRecipe;
 window.apiEstimateMacros = apiEstimateMacros;
+window.apiSendLoginCode = apiSendLoginCode;
+window.apiVerifyLoginCode = apiVerifyLoginCode;
