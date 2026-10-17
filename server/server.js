@@ -37,7 +37,7 @@ app.post("/api/test", async (req, res) => {
    The code itself is NEVER sent back to the browser. The token holds only an
    expiry and an HMAC of (email | code | expiry), so it can't be reversed into
    the code, and it works on serverless hosts with no database. */
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND);
 const CODE_SECRET = process.env.CODE_SECRET || process.env.RESEND_API_KEY || "";
 const CODE_TTL_MS = 10 * 60 * 1000;      // codes last 10 minutes
 const RESEND_COOLDOWN_MS = 30 * 1000;    // min gap between emails to one address
