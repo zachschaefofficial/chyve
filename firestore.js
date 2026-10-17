@@ -291,19 +291,11 @@ const actionCodeSettings = {
 async function sendVerificationEmail(email){
   const cleanEmail = (email || '').trim().toLowerCase();
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
   if(!cleanEmail || !emailPattern.test(cleanEmail)){
-    throw new Error('A valid email is required before sending a verification link.');
+    throw new Error('A valid email is required before sending a verification code.');
   }
-
-  console.log('Preparing to send verification email to:', cleanEmail);
-  try{
-  await sendSignInLinkToEmail(auth, cleanEmail, actionCodeSettings);
-  console.log("sent successfully");
-  }catch(e){
-    console.error('Error sending verification email:', e);
-  }
-  return { email: cleanEmail };
+  const result = await apiSendLoginCode(cleanEmail);
+  return { email: cleanEmail, token: result.token };
 }
 async function SignInWithGoogle(){
   try {

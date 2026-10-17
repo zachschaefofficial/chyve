@@ -1126,6 +1126,29 @@ function requireLoginCode(username, email, finish, isResend){
     fail((err && err.message) || 'Could not send the verification code. Please try again.');
   });
 }
+function requireSignupCode(username, email, password, token){
+  window.__codeStep = { username, email, token: token || '', signup: true, finish: async function(){
+    try{
+      await waitFirestore();
+      const weekId = currentWeekId();
+      const profile = { username, displayName: username, email, xp: 0, weeklyXp: 0, weekId, streak: 0, completed: [], completionDates: [], badges: [], checks: {} };
+      const created = await window.createUser(email, password, profile);
+      users[username] = { ...profile, uid: created.uid, password };
+      currentUser = username;
+      screen = 'app'; appView = 'path'; activeDishId = null; dishStage = 'overview';
+      window.__authBusy = false; window.__codeStep = null;
+      persistLocal(); render();
+    }catch(err){
+      console.error('Could not create verified account:', err);
+      window.__authBusy = false;
+      window.__authError = (err && err.message) || 'Could not create your account. Please try again.';
+      render();
+    }
+  }};
+  window.__authBusy = false; window.__authError = '';
+  window.__authStatus = 'We emailed a 6-digit code to ' + maskEmail(email) + '.';
+  screen = 'signup'; render(); focusCodeInput();
+}
 function renderCodeStep(){
   const s = window.__codeStep || {};
   return `
@@ -1190,6 +1213,20 @@ async function handleCodeSubmit(e){
 function resendLoginCode(){
   const s = window.__codeStep;
   if(!s || window.__authBusy) return;
+  if(s.signup){
+    window.__authBusy = true; window.__authError = ''; window.__authStatus = '';
+    render();
+    window.sendVerificationEmail(s.email).then(function(r){
+      if(window.__codeStep !== s) return;
+      s.token = r.token; window.__authBusy = false;
+      window.__authStatus = 'New code sent to ' + maskEmail(s.email) + '.';
+      render(); focusCodeInput();
+    }).catch(function(err){
+      window.__authBusy = false; window.__authError = (err && err.message) || 'Could not send the verification code.';
+      render(); focusCodeInput();
+    });
+    return;
+  }
   requireLoginCode(s.username, s.email, s.finish, true);
 }
 function cancelLoginCode(){
@@ -1202,7 +1239,7 @@ function cancelLoginCode(){
 
 function renderAuth(mode){
   const isLogin = mode==='login';
-  if(isLogin && window.__codeStep) return renderCodeStep();
+  if(window.__codeStep && (isLogin || window.__codeStep.signup)) return renderCodeStep();
   return `
   <div class="auth-wrap">
     <div class="auth-card">
@@ -1296,26 +1333,17 @@ function handleAuthSubmit(e, mode){
     window.__authError = '';
     window.__authStatus = '';
     render();
-    console.log('Sending verification email to:', email);
-    try{
-    sendVerificationEmail(email)
-      .then(() => {
-        console.log('Verification email sent to:', email);
-        window.__authBusy = false;
-        window.__authStatus = 'Link sent — check your email to finish signing in.';
-        window.__authError = '';
-        render();
+    window.sendVerificationEmail(email)
+      .then((result) => {
+        requireSignupCode(username, email, password, result.token);
       })
       .catch((error) => {
         console.error('Verification email error:', error);
         window.__authBusy = false;
         window.__authStatus = '';
-        window.__authError = 'Could not send the verification link. Please try again.';
+        window.__authError = error.message || 'Could not send the verification code. Please try again.';
         render();
       });
-    }catch(e){
-      console.log("Error sending verification email:", e);
-    }
     return false;
   }
   screen='app'; appView='path'; activeDishId=null; dishStage='overview';
