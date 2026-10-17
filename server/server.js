@@ -32,13 +32,13 @@ app.post("/api/test", async (req, res) => {
     });
 });
 /* ---------- 6-digit email verification codes ----------
-   /api/email  generates a code, emails it, and returns only a signed token.
+   /api/email generates a code, emails it, and returns only a signed token.
    /api/verify checks the code the user typed against that token.
    The code itself is NEVER sent back to the browser. The token holds only an
    expiry and an HMAC of (email | code | expiry), so it can't be reversed into
    the code, and it works on serverless hosts with no database. */
 const resend = new Resend(process.env.RESEND);
-const CODE_SECRET = process.env.RESEND;
+const CODE_SECRET = process.env.CODE_SECRET || process.env.RESEND;
 const CODE_TTL_MS = 10 * 60 * 1000;      // codes last 10 minutes
 const RESEND_COOLDOWN_MS = 30 * 1000;    // min gap between emails to one address
 const MAX_CODE_ATTEMPTS = 5;             // wrong guesses allowed per code
@@ -81,49 +81,49 @@ app.post("/api/email", async (req, res) => {
       return res.status(500).json({ error: "Could not send the code." });
     }
 
-    res.json({ success: true, token: `${exp}.${signCode(email, code, exp)}` });
+    const signature = signCode(email, code, exp);
+    const token = `${exp}.${signature}`;
+    codeAttempts.set(token, 0);
+    res.json({ success: true, token });
   } catch (err) {
     console.error("/api/email failed:", err);
     res.status(500).json({ error: "Could not send the code." });
   }
 });
-
 app.post("/api/verify", (req, res) => {
   try {
     const email = String((req.body || {}).email || "").trim().toLowerCase();
     const code = String((req.body || {}).code || "").trim();
     const token = String((req.body || {}).token || "");
-    const [expStr, sig] = token.split(".");
-    const exp = Number(expStr);
-
-    if (!EMAIL_RE.test(email) || !/^\d{6}$/.test(code) || !sig || !exp) {
-      return res.status(400).json({ verified: false, error: "Enter the 6-digit code." });
+    const match = token.match(/^(\d{13})\.([a-f0-9]{64})$/);
+    if (!EMAIL_RE.test(email) || !/^\d{6}$/.test(code) || !match) {
+      return res.status(400).json({ verified: false, error: "Enter the 6-digit code from your email." });
     }
-    if (usedTokens.has(token)) {
-      return res.status(400).json({ verified: false, error: "That code was already used. Request a new one." });
-    }
+    if (usedTokens.has(token)) return res.status(400).json({ verified: false, error: "This code has already been used. Request a new code." });
+    const exp = Number(match[1]);
     if (Date.now() > exp) {
-      return res.status(400).json({ verified: false, expired: true, error: "That code has expired. Request a new one." });
+      codeAttempts.delete(token);
+      return res.status(400).json({ verified: false, expired: true, error: "That code expired. Request a new one." });
     }
-    const attempts = codeAttempts.get(token) || 0;
-    if (attempts >= MAX_CODE_ATTEMPTS) {
-      return res.status(429).json({ verified: false, expired: true, error: "Too many wrong attempts. Request a new code." });
-    }
-
+    const attempts = codeAttempts.get(token);
+    if (attempts == null) return res.status(400).json({ verified: false, error: "That code is no longer valid. Request a new one." });
     const expected = Buffer.from(signCode(email, code, exp), "hex");
-    const given = Buffer.from(sig, "hex");
-    const ok = given.length === expected.length && crypto.timingSafeEqual(given, expected);
-    if (!ok) {
-      codeAttempts.set(token, attempts + 1);
+    const supplied = Buffer.from(match[2], "hex");
+    if (!crypto.timingSafeEqual(expected, supplied)) {
+      const next = attempts + 1;
+      if (next >= MAX_CODE_ATTEMPTS) {
+        codeAttempts.delete(token);
+        return res.status(400).json({ verified: false, error: "Too many attempts. Request a new code." });
+      }
+      codeAttempts.set(token, next);
       return res.status(400).json({ verified: false, error: "Incorrect code. Try again." });
     }
-
     codeAttempts.delete(token);
     usedTokens.add(token);
-    res.json({ verified: true });
+    return res.json({ verified: true });
   } catch (err) {
     console.error("/api/verify failed:", err);
-    res.status(500).json({ verified: false, error: "Could not verify the code." });
+    return res.status(500).json({ verified: false, error: "Could not verify the code." });
   }
 });
 app.post("/api/check", async (req, res) => {
