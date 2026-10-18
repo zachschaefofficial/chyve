@@ -32,7 +32,7 @@ function openAIImageUrl(value) {
 }
 
 app.get("/", (req, res) => {
-    res.send("Chyve backend is running!");
+    res.send("Chyve backend is running! (1.0)");
 });
 
 app.post("/api/test", async (req, res) => {
