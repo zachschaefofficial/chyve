@@ -328,7 +328,7 @@ async function SignInWithGoogle(){
   }
 }
 // Base URL of the Chyve backend (website/server). Override by setting
-const CHYVE_API_URL = "https://chyvedomain.vercel.app"
+const CHYVE_API_URL = "https://easyserver-tawny.vercel.app"
 
 // The model returns its JSON as text, sometimes wrapped in ```json fences.
 function parseCheckResult(raw) {
