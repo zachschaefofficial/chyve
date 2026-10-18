@@ -17,6 +17,20 @@ const ai = new OpenAI({
   apiKey: process.env.OPENAI
 });
 
+// Responses API image_url accepts a fully qualified URL or a base64 data URL,
+// but not bare base64. Keep compatibility with clients that still send raw data.
+function openAIImageUrl(value) {
+  const photo = String(value || "").trim();
+  if (!photo) return "";
+  if (/^https?:\/\//i.test(photo) || /^data:image\/[\w.+-]+;base64,/i.test(photo)) {
+    return photo;
+  }
+  if (/^[A-Za-z0-9+/]+={0,2}$/.test(photo)) {
+    return `data:image/jpeg;base64,${photo}`;
+  }
+  return "";
+}
+
 app.get("/", (req, res) => {
     res.send("Chyve backend is running!");
 });
@@ -156,11 +170,10 @@ app.post("/api/verify", (req, res) => {
 app.post("/api/check", async (req, res) => {
   try {
     const recipe = req.body.recipe;
-    const photo = req.body.photo;
+    const photo = openAIImageUrl(req.body.photo);
     if (!recipe || !photo) {
         return res.status(400).json({ error: "recipe and photo are required" });
     }
-    console.log(recipe, photo)
     const interaction = await ai.responses.create({
   model: "gpt-4.1-mini",
   input: [
@@ -248,7 +261,7 @@ app.post("/api/moderate", async (req, res) => {
     const name = clip(req.body.name, 200).trim();
     const ingredients = clip(req.body.ingredients, 6000).trim();
     const instructions = clip(req.body.instructions, 12000).trim();
-    const photo = req.body.photo;
+    const photo = openAIImageUrl(req.body.photo);
     if (!name || !ingredients || !instructions || !photo) {
         return res.status(400).json({ error: "name, ingredients, instructions and photo are required" });
     }
