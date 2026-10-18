@@ -161,7 +161,7 @@ app.post("/api/check", async (req, res) => {
         return res.status(400).json({ error: "recipe and photo are required" });
     }
     console.log(recipe, photo)
-    const interaction = await openai.responses.create({
+    const interaction = await ai.responses.create({
   model: "gpt-4.1-mini",
   input: [
     {
