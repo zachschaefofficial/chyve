@@ -345,7 +345,8 @@ function parseCheckResult(raw) {
    recipe: a string, or { name, ingredients: [], steps: [] }
    Resolves to { complete: boolean, confidence: number, reason: string }. Throws on failure. */
 async function apiCheck(image, recipe) {
-  const photo = String(image || "").replace(/^data:[^;]+;base64,/, "");
+  // Keep data URLs intact: the server passes these to OpenAI as input_image.image_url.
+  const photo = String(image || "").trim();
   if (!photo) throw new Error("No photo provided.");
 
   let recipeText = recipe;
@@ -382,7 +383,8 @@ async function apiCheck(image, recipe) {
    Resolves to { appropriate: boolean, category: string, reason: string }. Throws on failure
    (a failure is NOT a rejection, so callers should let the user retry). */
 async function apiModerateRecipe(recipe, image) {
-  const photo = String(image || "").replace(/^data:[^;]+;base64,/, "");
+  // Keep data URLs intact: the server passes these to OpenAI as input_image.image_url.
+  const photo = String(image || "").trim();
   if (!photo) throw new Error("No photo provided.");
   if (!recipe || !recipe.name || !recipe.ingredients || !recipe.instructions) {
     throw new Error("Recipe is incomplete.");
