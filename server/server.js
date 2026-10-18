@@ -16,6 +16,7 @@ import OpenAI from "openai";
 const ai = new OpenAI({
   apiKey: process.env.OPENAI
 });
+
 app.get("/", (req, res) => {
     res.send("Chyve backend is running!");
 });
@@ -73,7 +74,33 @@ app.post("/api/email", async (req, res) => {
       from: "Chyve <noreply@chyve.app>",
       to: [email],
       subject: "Chyve Verification Code",
-      html: `<h1>Verify your email</h1><p>Your 6-digit verification code is:</p><div style="font-size:34px; line-height:1.4; font-weight:800; letter-spacing:8px; color:#315c3b;">${code}</div><p>This code expires in 10 minutes. If you didn't try to sign in to Chyve, you can ignore this email.</p>`,
+      html: `<div style="background-color:#244b35;padding:30px 32px;text-align:center;">
+  <div style="font-size:30px;font-weight:800;letter-spacing:-1px;color:#ffffff;">chyve<span style="color:#b9d9a9;">.</span></div>
+  <p style="margin:8px 0 0;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#d5e5d2;">Cook. Learn. Grow.</p>
+</div>
+
+<div style="padding:38px 32px 32px;text-align:center;">
+  <div style="width:64px;height:64px;margin:0 auto 22px;background-color:#edf4e9;border-radius:50%;line-height:64px;font-size:30px;">✉</div>
+
+  <h1 style="margin:0 0 12px;font-size:27px;line-height:1.3;letter-spacing:-0.6px;color:#203b2a;">Verify your email</h1>
+
+  <p style="margin:0 auto 28px;max-width:360px;font-size:15px;line-height:1.7;color:#657568;">You're one step away from joining Chyve. Enter this verification code to continue.</p>
+
+  <div style="padding:24px 12px;background-color:#f4f7f1;border:1px solid #e0e9dc;border-radius:14px;">
+    <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#728371;">Your verification code</p>
+    <div style="font-size:34px;line-height:1.5;font-weight:800;letter-spacing:7px;color:#315c3b;font-family:monospace;white-space:nowrap;">${code}</div>
+  </div>
+
+  <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#748175;">⏱ This code expires in <strong style="color:#405a45;">10 minutes</strong>.</p>
+
+  <div style="height:1px;background-color:#e9eee7;margin:30px 0 22px;"></div>
+
+  <p style="margin:0;font-size:13px;line-height:1.8;color:#78847a;">Didn't request a verification code? No worries — simply ignore this email. Your account won't be affected.</p>
+</div>
+
+<div style="padding:20px 24px;background-color:#f8faf7;text-align:center;border-top:1px solid #edf1eb;">
+  <p style="margin:0;font-size:12px;color:#8a968a;">Made for curious cooks. <strong style="color:#42664a;">© Chyve</strong></p>
+</div>`,
     });
     if (error) {
       console.error("/api/email resend error:", error);
@@ -134,55 +161,43 @@ app.post("/api/check", async (req, res) => {
         return res.status(400).json({ error: "recipe and photo are required" });
     }
     console.log(recipe, photo)
-    const interaction = await ai.responses.create({
-    model: "gemini-3.8-flash",
-    input: [
-    { type: "text", text: `You are the dish-completion checker for Chyve, a cooking app.
+    const interaction = await openai.responses.create({
+  model: "gpt-4.1-mini",
+  input: [
+    {
+      role: "user",
+      content: [
+        {
+          type: "input_text",
+          text: `You are the dish-completion checker for Chyve, a cooking app.
+
 
 You will receive:
+
 
 A recipe containing its name, ingredients, and instructions.
 An image uploaded by a user claiming to have completed the recipe.
 
+
 Your task is to determine whether the image plausibly shows the completed dish described by the recipe.
-
-Rules
-Compare the uploaded image with the recipe's expected final result.
-Focus primarily on the appearance, structure, texture, color, and presentation of the finished dish.
-Do NOT require individual ingredients to be visually identifiable. Ingredients may be mixed together, cooked, melted, chopped, or otherwise no longer recognizable.
-The dish does not need to look professionally prepared.
-Different plating, cookware, portion sizes, and presentation styles are acceptable.
-If the image clearly shows an unfinished preparation, raw ingredients, ingredients still being mixed, or a substantially incomplete dish, mark it as incomplete.
-If the image is ambiguous, blurry, poorly lit, or does not provide enough evidence to determine completion, mark it as incomplete rather than guessing.
-Do not judge the user's cooking skill, photography quality, or presentation quality.
-Only determine whether the image plausibly represents the completed recipe.
-Do not assume that the image is genuine or that the user actually followed every instruction. Judge only what can reasonably be determined from the recipe and image.
-Important
-
-Some recipes can have multiple valid final appearances. Do not reject a dish simply because its appearance differs from an imagined "perfect" version.
-
-The image should be considered complete when there is reasonable visual evidence that the final dish described by the recipe has been prepared.
-
-Return ONLY valid JSON in this exact format:
-
 {
 "complete": true,
 "confidence": 0.95,
-"reason": "The image shows a fully prepared dish that is consistent with the recipe's expected final result."
 }
-
 Set complete to either true or false.
-
 Set confidence to a number from 0 to 1 representing how confident you are in your decision.
+Do this as quickly as possible.
+${recipe}`
 
-Keep reason to one or two concise sentences explaining the visual evidence behind the decision. ${recipe}` },
-    {
-      type: "image",
-      data: photo,
-      mime_type: "image/jpeg"
+        },
+        {
+          type: "input_image",
+          image_url: photo
+        }
+      ]
     }
-    ]
-    });
+  ]
+});
     console.log(interaction.output_text)
     res.json({
         interaction: interaction.output_text
@@ -238,28 +253,41 @@ app.post("/api/moderate", async (req, res) => {
         return res.status(400).json({ error: "name, ingredients, instructions and photo are required" });
     }
     const interaction = await ai.responses.create({
-    model: "gemini-3.8-flash",
-    input: [
-    { type: "text", text: `${MODERATION_PROMPT}
+  model: "gpt-4.1-mini",
+  input: [
+    {
+      role: "user",
+      content: [
+        {
+          type: "input_text",
+          text: `${MODERATION_PROMPT}
+
 
 RECIPE_START
 Name: ${name}
 
+
 Ingredients:
 ${ingredients}
+
 
 Instructions:
 ${instructions}
 RECIPE_END
 
-The photo the author attached is the image that follows.` },
-    {
-      type: "image",
-      data: photo,
-      mime_type: "image/jpeg"
+
+The photo the author attached is the image that follows.`
+
+        },
+        {
+          type: "input_image",
+          image_url: photo
+        }
+      ]
     }
-    ]
-    });
+  ]
+});
+
     res.json({
         interaction: interaction.output_text
     });
@@ -274,13 +302,82 @@ app.post('/api/macros', async (req, res) => {
   const prompt = `Estimate nutrition PER SERVING using ONLY this ingredient list. If a "Yield" line is given, divide by that many servings; otherwise infer a sensible serving count from the quantities. Reply with JSON only: {"servings":n,"calories":n,"protein":n,"carbs":n,"fat":n,"saturatedFat":n,"fiber":n,"sugar":n,"sodium":n,"cholesterol":n} (grams, except calories, and sodium and cholesterol in mg).${ingredients}`;
   try {
     const interaction = await ai.responses.create({
-      model: MODEL,
-      input: prompt
-    });
+  model: "gpt-4.1-mini",
+  input: [
+    {
+      role: "user",
+      content: [
+        {
+          type: "input_text",
+          text: prompt
+        },
+      ]
+    }
+  ]
+});
+
     res.json({ interaction: interaction.output_text });
   } catch (err) {
     console.error("/api/macros failed:", err);
     res.status(500).json({ error: "Macro estimate failed" });
+  }
+});
+/* ---------- User feedback ----------
+   POST /api/feedback { type, message, username, email } emails the message to FEEDBACK_TO_EMAIL
+   through Resend. Reply-To is set to the user's email (when given) so you can answer directly.
+   Best-effort throttle per IP; on serverless hosts it resets between cold starts, so it only
+   slows down casual spam. */
+const FEEDBACK_TO = process.env.FEEDBACK_TO_EMAIL || "";
+const FEEDBACK_TYPES = { idea: "Idea", bug: "Bug", other: "Other" };
+const feedbackHits = new Map();
+const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+app.post("/api/feedback", async (req, res) => {
+  try {
+    if (!FEEDBACK_TO) {
+      console.error("/api/feedback: FEEDBACK_TO_EMAIL is not set");
+      return res.status(500).json({ error: "Feedback is not configured yet" });
+    }
+    const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+    const now = Date.now();
+    const recent = (feedbackHits.get(ip) || []).filter((t) => now - t < 60 * 60 * 1000);
+    if (recent.length >= 5) {
+      return res.status(429).json({ error: "You've sent a lot of feedback recently. Please try again later." });
+    }
+
+    const body = req.body || {};
+    const message = String(body.message || "").trim().slice(0, 2000);
+    const type = FEEDBACK_TYPES[body.type] ? body.type : "other";
+    const username = String(body.username || "").trim().slice(0, 60);
+    const rawEmail = String(body.email || "").trim().toLowerCase();
+    const email = EMAIL_RE.test(rawEmail) ? rawEmail : "";
+    if (message.length < 3) {
+      return res.status(400).json({ error: "Please write a little more." });
+    }
+
+    const { error } = await resend.emails.send({
+      from: 'Chyve Feedback <noreply@chyve.app>',
+      to: [FEEDBACK_TO],
+      ...(email ? { replyTo: email } : {}),
+      subject: `[Chyve ${FEEDBACK_TYPES[type]}] ${username ? "from " + username : "feedback"}`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:560px">
+        <p><strong>Type:</strong> ${FEEDBACK_TYPES[type]}<br>
+        <strong>User:</strong> ${escHtml(username || "unknown")}<br>
+        <strong>Email:</strong> ${escHtml(email || "not provided")}</p>
+        <p style="white-space:pre-wrap;border-left:3px solid #ccc;padding-left:12px">${escHtml(message)}</p>
+      </div>`,
+    });
+    if (error) {
+      console.error("/api/feedback resend error:", error);
+      return res.status(502).json({ error: "Could not send your feedback" });
+    }
+
+    recent.push(now);
+    feedbackHits.set(ip, recent);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("/api/feedback failed:", err);
+    res.status(500).json({ error: "Could not send your feedback" });
   }
 });
 app.listen(PORT, () => {

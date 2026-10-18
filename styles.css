@@ -413,6 +413,15 @@ footer .brand{font-size:1rem;}
 .profile-xp-line{display:flex;align-items:center;gap:10px;margin-top:10px;color:var(--text-2);font-size:0.82rem;font-weight:550;}
 .xp-bar-wrap.profile-xp{width:160px;margin-left:0;}
 .profile-footer{margin-top:28px;display:flex;flex-direction:column;gap:20px;}
+/* Feedback modal */
+.fb-overlay{position:fixed;inset:0;z-index:100;background:rgba(20,20,16,.45);display:flex;align-items:center;justify-content:center;padding:20px;}
+.fb-card{position:relative;width:100%;max-width:440px;max-height:calc(100vh - 40px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:28px 26px 24px;}
+.fb-card h3{font-size:1.15rem;margin-bottom:4px;}
+.fb-sub{color:var(--text-2);font-size:0.88rem;margin-bottom:18px;}
+.fb-close{position:absolute;top:12px;right:14px;width:30px;height:30px;border-radius:8px;font-size:1.4rem;line-height:1;color:var(--text-2);}
+.fb-close:hover{background:var(--surface-2);color:var(--text);}
+.fb-card textarea{resize:vertical;min-height:120px;line-height:1.5;font-family:inherit;}
+.fb-check{display:flex;align-items:center;gap:8px;font-size:0.84rem;color:var(--text-2);margin:-4px 0 16px;cursor:pointer;}
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:36px;}
 .stat-box{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:18px;}
 .stat-box .num{font-size:1.9rem;font-weight:600;letter-spacing:-0.05em;line-height:1.1;font-variant-numeric:tabular-nums;}

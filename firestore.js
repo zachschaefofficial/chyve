@@ -246,6 +246,18 @@ async function getUserCompletions(targetUid, actingUid) {
     .map(d => d.data())
     .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
 }
+// A banned user is hidden everywhere (leaderboards, circles, recipes, comments, profiles).
+// The users/{uid} flag is the source of truth; we also mirror it onto the public index card so
+// every client sees it without having to read every user doc. Nothing is deleted, so unbanning
+// restores the user exactly as they were (circle memberships, recipes, comments, XP).
+async function setIndexCardBanned(username, banned) {
+  if (!username) return;
+  try {
+    await setDoc(doc(db, "users", "__gv_index"), { ["u_" + username]: { banned: banned === true } }, { merge: true });
+  } catch (e) {
+    console.warn("Could not update the public index card:", e);
+  }
+}
 async function banUser(targetUid, actingUid) {
   await assertAdmin(actingUid);
   const ref = doc(db, "users", targetUid);
@@ -253,11 +265,15 @@ async function banUser(targetUid, actingUid) {
   if (!snap.exists()) throw new Error("User not found.");
   if (snap.data().admin === true) throw new Error("Admins can't be banned.");
   await updateDoc(ref, { banned: true, bannedAt: Date.now(), bannedBy: actingUid });
+  await setIndexCardBanned(snap.data().username, true);
   return { banned: true };
 }
 async function unbanUser(targetUid, actingUid) {
   await assertAdmin(actingUid);
-  await updateDoc(doc(db, "users", targetUid), { banned: false });
+  const ref = doc(db, "users", targetUid);
+  const snap = await getDoc(ref);
+  await updateDoc(ref, { banned: false });
+  await setIndexCardBanned(snap.exists() ? snap.data().username : "", false);
   return { banned: false };
 }
 // Banned users can never log in — admins are immune.
@@ -465,6 +481,24 @@ async function apiVerifyLoginCode(email, code, token) {
   const data = await response.json().catch(() => ({}));
   return { verified: data.verified === true, expired: data.expired === true, error: data.error || "" };
 }
+/* apiSendFeedback({ type, message, username, email })
+   type: "idea" | "bug" | "other". The server emails it to the Chyve owner.
+   Resolves to true. Throws an Error with a user-readable message on failure. */
+async function apiSendFeedback(fb) {
+  const response = await fetch(CHYVE_API_URL + "/api/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: fb && fb.type,
+      message: fb && fb.message,
+      username: fb && fb.username,
+      email: fb && fb.email
+    })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.success !== true) throw new Error(data.error || "Could not send your feedback.");
+  return true;
+}
 window.createUser = createUser;
 window.getUserData = getUserData;
 window.editUserData = editUserData;
@@ -492,4 +526,5 @@ window.apiCheck = apiCheck;
 window.apiModerateRecipe = apiModerateRecipe;
 window.apiEstimateMacros = apiEstimateMacros;
 window.apiSendLoginCode = apiSendLoginCode;
+window.apiSendFeedback = apiSendFeedback;
 window.apiVerifyLoginCode = apiVerifyLoginCode;

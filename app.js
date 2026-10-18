@@ -376,7 +376,8 @@ function applyCloudUser(username, data, card){
     streak: live.streak || 0,
     cooked: (live.completed || []).length,
     bio: live.bio || '',
-    badges: Array.isArray(live.badges) ? live.badges.length : (live.badges || 0)
+    badges: Array.isArray(live.badges) ? live.badges.length : (live.badges || 0),
+    banned: live.banned === true && live.admin !== true
   };
 }
 async function hydrateAllUsersFromCloud(){
@@ -470,11 +471,44 @@ function socialCardFor(name){
     badges: cloud.badges || 0
   };
 }
+/* ---------- Banned users are invisible to everyone ----------
+   Hidden at READ time only (nothing is deleted), so unbanning brings back their rank,
+   circle memberships, recipes and comments exactly as they were. Admins can't be banned. */
+function isBannedCard(c){ return !!c && c.banned === true && c.admin !== true; }
+function isBannedName(name){
+  if(!name || isYou(name)) return false;
+  const u = users[name];
+  if(u && u.admin === true) return false;
+  return isBannedCard(socialIndex[name]) || !!(u && u.banned === true);
+}
+function isBannedUid(uid){
+  if(!uid) return false;
+  const me = users[currentUser];
+  if(me && me.uid === uid) return false;
+  return Object.values(socialIndex).some(c => c && c.uid === uid && isBannedCard(c))
+    || Object.values(users).some(u => u && u.uid === uid && u.banned === true && u.admin !== true);
+}
+function visibleMembers(g){
+  return ((g && g.members) || []).filter(n => !isBannedName(n));
+}
+function visibleComments(){
+  return recipeComments.filter(c => c.uid ? !isBannedUid(c.uid) : !isBannedName(c.username));
+}
+function visibleCommunityDishes(){
+  return communityDishes.filter(d => !isBannedUid(d.authorUid) && !isBannedName(d.author));
+}
+// Admin just banned / unbanned someone: update what this tab already has cached.
+function markBannedLocally(u, banned){
+  if(!u || !u.username) return;
+  if(users[u.username]) users[u.username].banned = banned;
+  if(socialIndex[u.username]) socialIndex[u.username].banned = banned;
+  leaderboardRows = null;
+}
 function allCookNames(){
   const set = {};
   Object.keys(socialIndex).forEach(n => set[n] = true);
   Object.keys(users).forEach(n => set[n] = true);
-  return Object.keys(set).sort((a,b)=>a.localeCompare(b));
+  return Object.keys(set).filter(n => !isBannedName(n)).sort((a,b)=>a.localeCompare(b));
 }
 function leaderboardEntries(mode){
   return allCookNames().map(n => {
@@ -1861,8 +1895,8 @@ function renderRecipeComments(dish){
       <button class="btn btn-ghost btn-small" type="submit">Post comment</button>
     </form>` : `<p class="comment-login-note">Sign in to leave a comment.</p>`}
     ${recipeCommentsLoading ? '<p class="admin-empty">Loading comments…</p>' : ''}
-    ${!recipeCommentsLoading && !recipeComments.length ? '<p class="comment-login-note">No comments yet.</p>' : ''}
-    <div class="recipe-comment-list">${recipeComments.map(c => `<article class="recipe-comment">
+    ${!recipeCommentsLoading && !visibleComments().length ? '<p class="comment-login-note">No comments yet.</p>' : ''}
+    <div class="recipe-comment-list">${visibleComments().map(c => `<article class="recipe-comment">
       <div class="recipe-comment-head"><b>${esc(c.username || 'Cook')}</b><time>${esc(c.createdAt ? new Date(c.createdAt).toLocaleString() : '')}</time></div>
       <p>${esc(c.text)}</p>${c.photoData ? `<img class="comment-photo" src="${esc(safePhotoSrc(c.photoData))}" alt="Recipe photo attached by ${esc(c.username || 'cook')}" loading="lazy">` : ''}
     </article>`).join('')}</div>
@@ -1870,7 +1904,7 @@ function renderRecipeComments(dish){
 }
 async function loadRecipeComments(recipeId){
   recipeCommentsLoading = true; recipeComments = [];
-  try{ await waitRecipes(); recipeComments = await window.listRecipeComments(recipeId); }
+  try{ await waitRecipes(); const [list] = await Promise.all([window.listRecipeComments(recipeId), refreshSocialIndex()]); recipeComments = list; }
   catch(e){ console.error('Could not load comments:', e); }
   recipeCommentsLoading = false;
   if(String(activeDishId) === String(recipeId) && dishStage === 'overview') render(false);
@@ -2545,8 +2579,9 @@ function setBrowseQuery(v){
 }
 function filteredCommunityDishes(){
   const q = String(browseQuery || '').trim().toLowerCase();
-  if(!q) return communityDishes;
-  return communityDishes.filter(dish => {
+  const all = visibleCommunityDishes();
+  if(!q) return all;
+  return all.filter(dish => {
     const hay = [dish.name, dish.author, dish.desc, dish.ingredients, dish.steps]
       .map(x => String(x || '').toLowerCase()).join(' ');
     return hay.indexOf(q) !== -1;
@@ -2567,7 +2602,7 @@ function renderBrowse(s){
   if(communityLoading && !communityDishes.length){
     return head + search + `<div class="skel"></div><div class="skel"></div>`;
   }
-  if(!communityDishes.length){
+  if(!visibleCommunityDishes().length){
     return head + search + `<div class="empty-illus">No approved recipes yet. Upload a dish and wait for it to be approved.</div>`;
   }
   const shown = filteredCommunityDishes();
@@ -2590,7 +2625,7 @@ function renderBrowse(s){
 function loadApprovedRecipes(){
   communityLoading = true;
   render(false);
-  waitRecipes().then(() => window.listApprovedRecipes()).then((rows) => {
+  waitRecipes().then(() => Promise.all([window.listApprovedRecipes(), refreshSocialIndex()])).then(([rows]) => {
     communityDishes = (rows || []).map(communityDishFromCloud);
     communityLoading = false;
     if(appView === 'browse') render(false);
@@ -2969,6 +3004,7 @@ async function submitRecipeUpload(e){
 
 async function openProfile(username){
   if(!username) return;
+  if(isBannedName(username)){ showNotice("That cook isn't available."); return; }
   profileOrigin = (appView === 'profile') ? (profileOrigin || 'leaderboard') : appView;
   viewingUser = isYou(username) ? null : username;
   appView = 'profile';
@@ -2983,6 +3019,11 @@ async function openProfile(username){
       const r = await window.getUserData(card.uid);
       if(r && r.data){
         applyCloudUser(r.data.username || target, r.data, card);
+        if(viewingUser === target && isBannedName(target)){
+          backFromProfile();
+          showNotice("That cook isn't available.");
+          return;
+        }
         if(appView==='profile' && (viewingUser===target || (!viewingUser && isYou(target)))) render(false);
       }
     }catch(e){}
@@ -3030,7 +3071,7 @@ function renderGroups(s){
           <h3>${esc(g.name)}</h3>
           <p>${esc(CIRCLE_GOAL)}</p>
           <div class="group-foot">
-            <span class="mini-stat">${(g.members||[]).length} cook${(g.members||[]).length===1?'':'s'}</span>
+            <span class="mini-stat">${visibleMembers(g).length} cook${visibleMembers(g).length===1?'':'s'}</span>
             ${mine ? `<span class="member-you">You're in</span>` : ''}
             <span class="code-pill">${esc(g.code)}</span>
           </div>
@@ -3057,7 +3098,7 @@ function backToPeople(){
 }
 function renderGroupDetail(s, g){
   const members = (g.members || []);
-  const rows = members.map(n => {
+  const rows = visibleMembers(g).map(n => {
     const c = socialCardFor(n);
     return { ...c, score: c.weeklyXp || 0 };
   }).sort((a,b)=> {
@@ -3261,8 +3302,84 @@ function renderProfile(s){
           </div>`).join('')}
       </div>
     </div>
-    ${isSelf ? `<div class="profile-footer"><button type="button" class="btn btn-ghost btn-block" onclick="logout()">Log out</button></div>` : ''}
+    ${isSelf ? `<div class="profile-footer"><button type="button" class="btn btn-ghost btn-block" onclick="openFeedback()">Send feedback</button><button type="button" class="btn btn-ghost btn-block" onclick="logout()">Log out</button></div>` : ''}
   `;
+}
+/* ---------- Feedback ----------
+   Profile -> "Send feedback" opens a small modal (built straight into document.body so
+   re-renders of the app never wipe what the user is typing). Sending goes through
+   window.apiSendFeedback -> POST /api/feedback, which emails the owner. */
+let fbType = 'idea';
+function feedbackKey(e){ if(e.key === 'Escape') closeFeedback(); }
+function setFeedbackType(t){
+  fbType = t;
+  document.querySelectorAll('#fb-types .auth-method-tab').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-type') === t);
+  });
+}
+function openFeedback(){
+  if(document.getElementById('fb-overlay')) return;
+  const s = users[currentUser] || {};
+  fbType = 'idea';
+  const ov = document.createElement('div');
+  ov.id = 'fb-overlay';
+  ov.className = 'fb-overlay';
+  ov.onclick = (e) => { if(e.target === ov) closeFeedback(); };
+  ov.innerHTML = `
+    <div class="fb-card" role="dialog" aria-modal="true" aria-labelledby="fb-title">
+      <button type="button" class="fb-close" aria-label="Close" onclick="closeFeedback()">×</button>
+      <h3 id="fb-title">Send feedback</h3>
+      <p class="fb-sub">Ideas, bugs, or anything else. It goes straight to the person who builds Chyve.</p>
+      <div class="auth-method-toggle" id="fb-types">
+        <button type="button" class="auth-method-tab active" data-type="idea" onclick="setFeedbackType('idea')">Idea</button>
+        <button type="button" class="auth-method-tab" data-type="bug" onclick="setFeedbackType('bug')">Bug</button>
+        <button type="button" class="auth-method-tab" data-type="other" onclick="setFeedbackType('other')">Other</button>
+      </div>
+      <div class="field">
+        <label for="fb-message">Your feedback</label>
+        <textarea id="fb-message" maxlength="2000" rows="6" placeholder="What's on your mind?"></textarea>
+      </div>
+      ${s.email ? `<label class="fb-check"><input type="checkbox" id="fb-reply" checked> Include my email (${esc(s.email)}) so I can reply</label>` : ''}
+      <div class="auth-error" id="fb-error" style="display:none;"></div>
+      <button type="button" class="btn btn-primary btn-block" id="fb-send" onclick="submitFeedback()">Send feedback</button>
+    </div>`;
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', feedbackKey);
+  setTimeout(() => { const t = document.getElementById('fb-message'); if(t) t.focus(); }, 0);
+}
+function closeFeedback(){
+  const ov = document.getElementById('fb-overlay');
+  if(ov) ov.remove();
+  document.removeEventListener('keydown', feedbackKey);
+}
+async function submitFeedback(){
+  const msgEl = document.getElementById('fb-message');
+  const errEl = document.getElementById('fb-error');
+  const btn = document.getElementById('fb-send');
+  if(!msgEl || !errEl || !btn) return;
+  const showErr = (m) => { errEl.textContent = m; errEl.style.display = 'block'; };
+  const message = msgEl.value.trim();
+  if(message.length < 3){ showErr('Please write a little more.'); return; }
+  if(typeof window.apiSendFeedback !== 'function'){ showErr('Feedback is still loading. Please try again in a moment.'); return; }
+  const s = users[currentUser] || {};
+  const reply = document.getElementById('fb-reply');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try{
+    await window.apiSendFeedback({
+      type: fbType,
+      message: message,
+      username: currentUser || '',
+      email: (reply && reply.checked) ? (s.email || '') : ''
+    });
+    closeFeedback();
+    showNotice('Thanks! Your feedback was sent.');
+  }catch(e){
+    showErr((e && e.message) || 'Could not send your feedback. Please try again.');
+    btn.disabled = false;
+    btn.textContent = 'Send feedback';
+  }
 }
 function saveBio(text){
   const s = users[currentUser];
@@ -3543,6 +3660,7 @@ async function adminBan(uid){
   try{
     await window.banUser(uid, adminActingUid());
     u.banned = true;
+    markBannedLocally(u, true);
     showNotice(u.username + ' has been banned.');
   }catch(e){
     console.error('Ban failed:', e);
@@ -3560,6 +3678,7 @@ async function adminUnban(uid){
   try{
     await window.unbanUser(uid, adminActingUid());
     u.banned = false;
+    markBannedLocally(u, false);
     showNotice(u.username + ' has been unbanned.');
   }catch(e){
     console.error('Unban failed:', e);
