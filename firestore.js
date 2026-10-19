@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment, updateDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment, updateDoc, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, sendSignInLinkToEmail, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-storage.js";
 // TODO: Replace the following with your app's Firebase project configuration
@@ -54,6 +54,12 @@ async function getUserData(uid){
     data = { ...data, admin: false };
   }
   return { data };
+}
+function watchUserXP(uid, callback) {
+  if (!uid || typeof callback !== "function") return () => {};
+  return onSnapshot(doc(db, "users", uid), snap => {
+    if (snap.exists()) callback(snap.data() || {});
+  });
 }
 async function createRecipe(data) {
   const id = (typeof crypto !== "undefined" && crypto.randomUUID)
@@ -172,8 +178,25 @@ function shrinkImage(dataUrl, maxDim, quality) {
     img.src = dataUrl;
   });
 }
+function imageDataUrl(photo) {
+  const value = String(photo || "").trim();
+  if (/^data:image\/[\w.+-]+;base64,/i.test(value)) return value;
+  // Completion photos are stored as Firebase data URLs; accept legacy raw
+  // base64 inputs without letting the API transport format affect storage.
+  if (/^[A-Za-z0-9+/]+={0,2}$/.test(value)) return `data:image/jpeg;base64,${value}`;
+  return value;
+}
 function safeKey(v) {
   return String(v).replace(/[^A-Za-z0-9_-]/g, "_");
+}
+function currentWeekKey() {
+  const d = new Date();
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+  return date.getUTCFullYear() + "-W" + String(weekNo).padStart(2, "0");
 }
 async function saveCompletionPhoto({ uid, username, recipeId, recipeName, photo }) {
   if (!uid) throw new Error("Cannot save a completion photo without a user id.");
@@ -186,7 +209,8 @@ async function saveCompletionPhoto({ uid, username, recipeId, recipeName, photo 
     recipeName: recipeName || "",
     completedAt: Date.now()
   };
-  let jpeg = await shrinkImage(photo, 1280, 0.82);
+  const sourcePhoto = imageDataUrl(photo);
+  let jpeg = await shrinkImage(sourcePhoto, 1280, 0.82);
   try {
     const fileRef = storageRef(storage, "completions/" + safeKey(uid) + "/" + safeKey(recipeId) + ".jpg");
     await uploadString(fileRef, jpeg, "data_url");
@@ -195,11 +219,11 @@ async function saveCompletionPhoto({ uid, username, recipeId, recipeName, photo 
     console.warn("Storage upload failed, saving the photo on the Firestore document instead:", e);
     // A Firestore document must stay under 1 MB, so shrink further until it fits.
     let dim = 900, q = 0.7;
-    jpeg = await shrinkImage(photo, dim, q);
+    jpeg = await shrinkImage(sourcePhoto, dim, q);
     while (jpeg.length > 700000 && dim > 300) {
       dim = Math.round(dim * 0.75);
       q = Math.max(0.5, q - 0.05);
-      jpeg = await shrinkImage(photo, dim, q);
+      jpeg = await shrinkImage(sourcePhoto, dim, q);
     }
     record.photoData = jpeg;
   }
@@ -245,6 +269,125 @@ async function getUserCompletions(targetUid, actingUid) {
   return snap.docs
     .map(d => d.data())
     .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+}
+async function getMyChallengeOptions(uid) {
+  if (!uid || !auth.currentUser || auth.currentUser.uid !== uid) throw new Error("Sign in to enter a challenge.");
+  const [recipesSnap, completionsSnap] = await Promise.all([
+    getDocs(query(collection(db, "recipes"), where("authorUid", "==", uid))),
+    getDocs(query(collection(db, "completions"), where("uid", "==", uid)))
+  ]);
+  const photosByRecipe = new Map();
+  completionsSnap.docs.forEach(d => {
+    const c = d.data() || {};
+    if (c.photoUrl || c.photoData) photosByRecipe.set(String(c.recipeId), c.photoUrl || c.photoData);
+  });
+  return recipesSnap.docs.map(d => {
+    const recipe = d.data() || {};
+    const id = recipe.id || d.id;
+    return recipe.approved === true && photosByRecipe.has(String(id)) ? { id: String(id), name: recipe.name || "Recipe", photo: photosByRecipe.get(String(id)) } : null;
+  }).filter(Boolean);
+}
+async function listChallengeEntries(challengeId) {
+  const snap = await getDocs(query(collection(db, "challengeEntries"), where("challengeId", "==", String(challengeId))));
+  return snap.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (b.votes || 0) - (a.votes || 0) || (a.createdAt || 0) - (b.createdAt || 0));
+}
+async function getMyChallengeVote(challengeId) {
+  if (!auth.currentUser) return null;
+  const snap = await getDoc(doc(db, "challengeVotes", safeKey(challengeId) + "_" + safeKey(auth.currentUser.uid)));
+  return snap.exists() ? snap.data() : null;
+}
+async function submitChallengeEntry({ challengeId, weekId, recipeId, username }) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Sign in to enter a challenge.");
+  if (String(challengeId) !== String(weekId) || String(weekId) !== currentWeekKey()) throw new Error("This challenge week is no longer active.");
+  const recipeSnap = await getDoc(doc(db, "recipes", String(recipeId)));
+  if (!recipeSnap.exists()) throw new Error("That recipe is no longer available.");
+  const recipe = recipeSnap.data() || {};
+  if (recipe.authorUid !== user.uid || recipe.approved !== true) throw new Error("Choose one of your approved recipes.");
+  const completionSnap = await getDoc(doc(db, "completions", safeKey(user.uid) + "_" + safeKey(recipeId)));
+  if (!completionSnap.exists()) throw new Error("Complete this recipe and save a photo before entering.");
+  const completion = completionSnap.data() || {};
+  const photo = completion.photoUrl || completion.photoData;
+  if (!photo) throw new Error("This completion has no saved photo.");
+  const entryId = safeKey(challengeId) + "_" + safeKey(user.uid);
+  const entryRef = doc(db, "challengeEntries", entryId);
+  const entry = { id: entryId, challengeId: String(challengeId), weekId: String(weekId), uid: user.uid, username: String(username || "Cook"), recipeId: String(recipeId), recipeName: String(recipe.name || "Recipe"), photo, votes: 0, createdAt: Date.now() };
+  await runTransaction(db, async tx => {
+    const entrySnap = await tx.get(entryRef);
+    if (entrySnap.exists()) throw new Error("You already entered this week's challenge.");
+    tx.set(entryRef, entry);
+  });
+  return entry;
+}
+async function voteChallengeEntry({ challengeId, entryId, weekId }) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Sign in to vote.");
+  if (String(challengeId) !== String(weekId) || String(weekId) !== currentWeekKey()) throw new Error("Voting for this challenge has closed.");
+  const voteRef = doc(db, "challengeVotes", safeKey(challengeId) + "_" + safeKey(user.uid));
+  const entryRef = doc(db, "challengeEntries", String(entryId));
+  const userRef = doc(db, "users", user.uid);
+  return runTransaction(db, async tx => {
+    const [voteSnap, entrySnap, userSnap] = await Promise.all([tx.get(voteRef), tx.get(entryRef), tx.get(userRef)]);
+    if (voteSnap.exists()) throw new Error("You already voted in this challenge.");
+    if (!entrySnap.exists()) throw new Error("This entry is no longer available.");
+    const entry = entrySnap.data() || {};
+    if (entry.challengeId !== String(challengeId) || entry.uid === user.uid) throw new Error("You can't vote for this entry.");
+    if (!userSnap.exists()) throw new Error("Your profile could not be loaded.");
+    const profile = userSnap.data() || {};
+    const bonus = profile.challengeVoteBonusClaimed !== true;
+    const currentWeek = String(weekId || "");
+    const currentWeekly = profile.weekId === currentWeek ? (Number(profile.weeklyXp) || 0) : 0;
+    tx.set(voteRef, { challengeId: String(challengeId), entryId: String(entryId), uid: user.uid, createdAt: Date.now() });
+    tx.update(entryRef, { votes: (Number(entry.votes) || 0) + 1 });
+    if (bonus) tx.update(userRef, { xp: (Number(profile.xp) || 0) + 50, weeklyXp: currentWeekly + 50, weekId: currentWeek, challengeVoteBonusClaimed: true });
+    return { bonus, xp: bonus ? (Number(profile.xp) || 0) + 50 : Number(profile.xp) || 0, weeklyXp: bonus ? currentWeekly + 50 : currentWeekly };
+  });
+}
+async function awardChallengePlacement({ entryId, xp, weekId }) {
+  const entryRef = doc(db, "challengeEntries", String(entryId));
+  const initialSnap = await getDoc(entryRef);
+  if (!initialSnap.exists()) return { awarded: false };
+  const initialEntry = initialSnap.data() || {};
+  if (!initialEntry.challengeId || initialEntry.challengeId !== initialEntry.weekId || String(initialEntry.weekId) === String(weekId) || String(weekId) !== currentWeekKey()) return { awarded: false };
+  const ranked = await listChallengeEntries(initialEntry.challengeId);
+  const place = ranked.findIndex(entry => entry.id === String(entryId)) + 1;
+  const payouts = [500, 400, 300, 250, 200, 175, 150, 125, 100, 75];
+  if (place < 1 || place > 10 || Number(xp) !== payouts[place - 1]) return { awarded: false };
+  return runTransaction(db, async tx => {
+    const entrySnap = await tx.get(entryRef);
+    if (!entrySnap.exists()) return { awarded: false };
+    const entry = entrySnap.data() || {};
+    if (entry.placementAwarded || !entry.uid || (Number(entry.votes) || 0) !== (Number(initialEntry.votes) || 0)) return { awarded: false };
+    const userRef = doc(db, "users", entry.uid);
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists()) return { awarded: false };
+    const profile = userSnap.data() || {};
+    const awardWeekId = String(weekId || "");
+    const weeklyXp = profile.weekId === awardWeekId ? (Number(profile.weeklyXp) || 0) : 0;
+    tx.update(userRef, { xp: (Number(profile.xp) || 0) + Number(xp), weeklyXp: weeklyXp + Number(xp), weekId: awardWeekId });
+    tx.update(entryRef, { placementAwarded: true, placementXp: Number(xp) });
+    return { awarded: true, uid: entry.uid, xp: (Number(profile.xp) || 0) + Number(xp), weeklyXp: weeklyXp + Number(xp) };
+  });
+}
+async function awardRecipeCompletionXP({ recipeId, completerUid, awardWeekId }) {
+  if (!auth.currentUser || auth.currentUser.uid !== completerUid) throw new Error("Sign in to record this completion.");
+  const recipeSnap = await getDoc(doc(db, "recipes", String(recipeId)));
+  if (!recipeSnap.exists()) return false;
+  const recipe = recipeSnap.data() || {};
+  const authorUid = recipe.authorUid;
+  if (!authorUid) return false;
+  const awardRef = doc(db, "recipeCompletionAwards", safeKey(recipeId) + "_" + safeKey(completerUid));
+  const userRef = doc(db, "users", authorUid);
+  return runTransaction(db, async tx => {
+    const [awardSnap, userSnap] = await Promise.all([tx.get(awardRef), tx.get(userRef)]);
+    if (awardSnap.exists() || !userSnap.exists()) return { awarded: false };
+    const profile = userSnap.data() || {};
+    const weekId = String(awardWeekId || "");
+    const weeklyXp = profile.weekId === weekId ? (Number(profile.weeklyXp) || 0) : 0;
+    tx.set(awardRef, { recipeId: String(recipeId), completerUid, authorUid, xp: 10, createdAt: Date.now() });
+    tx.update(userRef, { xp: (Number(profile.xp) || 0) + 10, weeklyXp: weeklyXp + 10, weekId });
+    return { awarded: true, authorUid, xp: (Number(profile.xp) || 0) + 10, weeklyXp: weeklyXp + 10 };
+  });
 }
 // A banned user is hidden everywhere (leaderboards, circles, recipes, comments, profiles).
 // The users/{uid} flag is the source of truth; we also mirror it onto the public index card so
@@ -503,6 +646,7 @@ async function apiSendFeedback(fb) {
 }
 window.createUser = createUser;
 window.getUserData = getUserData;
+window.watchUserXP = watchUserXP;
 window.editUserData = editUserData;
 window.createRecipe = createRecipe;
 window.getRecipeData = getRecipeData;
@@ -519,6 +663,13 @@ window.sendVerificationEmail = sendVerificationEmail;
 window.saveCompletionPhoto = saveCompletionPhoto;
 window.listUsersForAdmin = listUsersForAdmin;
 window.getUserCompletions = getUserCompletions;
+window.getMyChallengeOptions = getMyChallengeOptions;
+window.listChallengeEntries = listChallengeEntries;
+window.getMyChallengeVote = getMyChallengeVote;
+window.submitChallengeEntry = submitChallengeEntry;
+window.voteChallengeEntry = voteChallengeEntry;
+window.awardChallengePlacement = awardChallengePlacement;
+window.awardRecipeCompletionXP = awardRecipeCompletionXP;
 window.banUser = banUser;
 window.unbanUser = unbanUser;
 window.isBannedData = isBannedData;

@@ -166,6 +166,80 @@ let communityLoading = false;
 let browseQuery = '';
 let viewShouldAnimate = false;
 let lastViewToken = '';
+let challengeEntries = null;
+let challengePastEntries = null;
+let challengeOptions = [];
+let challengeVote = null;
+let challengeRecipeChoice = '';
+let challengeLoading = false;
+let challengeBusy = false;
+let challengeNotice = '';
+let challengeSettlementWeek = '';
+let challengeSettlementPromise = null;
+let xpWatchUid = '';
+let xpWatchUnsubscribe = null;
+let xpWatchQuietUntil = 0;
+let lastClickPoint = { x: Math.round(window.innerWidth * 0.5), y: Math.round(window.innerHeight * 0.5) };
+
+document.addEventListener('pointerdown', event => {
+  lastClickPoint = { x: event.clientX, y: event.clientY };
+}, true);
+
+const WEEKLY_CHALLENGES = [
+  'Best breakfast under $10',
+  'Coziest one-pot meal',
+  'Best 15-minute lunch',
+  'Your best homemade pasta',
+  'Best weeknight dinner for two',
+  'Most colorful veggie dish',
+  'Best comfort food remake',
+  'Best sweet treat to share',
+  'A satisfying meatless dinner',
+  'Best dish with five ingredients',
+  'Your signature sandwich',
+  'Best soup for a chilly day',
+  'A meal-prep lunch you look forward to',
+  'Best crispy potatoes',
+  'A bright citrus dish',
+  'Your favorite family recipe',
+  'Best dish made in one pan',
+  'A fresh salad that eats like a meal',
+  'Best homemade pizza night',
+  'A budget-friendly dinner for four',
+  'Best cozy baked pasta',
+  'A dish inspired by your hometown',
+  'Best savory breakfast',
+  'Your best no-oven recipe',
+  'A colorful rice bowl',
+  'Best homemade dumplings or potstickers',
+  'A meal that uses pantry staples',
+  'Best chocolate dessert',
+  'A quick dinner after a long day',
+  'Best dish with fresh herbs',
+  'Your favorite way to cook beans',
+  'A picnic-ready recipe',
+  'Best crispy chicken dish',
+  'A comforting bowl of noodles',
+  'Best brunch to share',
+  'A dish with a little heat',
+  'Best homemade dip and snack',
+  'A simple fish or seafood dinner',
+  'Best roasted vegetable dish',
+  'A one-pot meal under $15',
+  'Your best celebration cake',
+  'A creative leftover makeover',
+  'Best taco night',
+  'A warming curry',
+  'Best homemade bread or biscuits',
+  'A fresh summer-inspired dish',
+  'Best cozy winter dinner',
+  'Your most colorful dessert',
+  'A restaurant favorite made at home',
+  'Best dish to bring to a potluck',
+  'A simple recipe a beginner can nail',
+  'Your best Sunday dinner'
+];
+const CHALLENGE_PLACEMENT_XP = [500, 400, 300, 250, 200, 175, 150, 125, 100, 75];
  
 function levelIndex(xp){
   let idx = 0;
@@ -227,6 +301,105 @@ function currentWeekId(){
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
   return date.getUTCFullYear() + '-W' + String(weekNo).padStart(2, '0');
+}
+function mondayForWeekId(weekId){
+  const match = String(weekId || '').match(/^(\d{4})-W(\d{2})$/);
+  if(!match) return new Date();
+  const jan4 = new Date(Date.UTC(Number(match[1]), 0, 4));
+  const mondayOffset = (jan4.getUTCDay() + 6) % 7;
+  jan4.setUTCDate(jan4.getUTCDate() - mondayOffset + (Number(match[2]) - 1) * 7);
+  return jan4;
+}
+function weekIdForDate(date){
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return d.getUTCFullYear() + '-W' + String(weekNo).padStart(2, '0');
+}
+function previousWeekId(weekId){
+  const monday = mondayForWeekId(weekId);
+  monday.setUTCDate(monday.getUTCDate() - 7);
+  return weekIdForDate(monday);
+}
+function challengeTitle(weekId){
+  const anchor = mondayForWeekId('2026-W42');
+  const current = mondayForWeekId(weekId);
+  const n = Math.floor((current - anchor) / (7 * 86400000));
+  return WEEKLY_CHALLENGES[((n % WEEKLY_CHALLENGES.length) + WEEKLY_CHALLENGES.length) % WEEKLY_CHALLENGES.length];
+}
+function awardXP(s, amount){
+  const xp = Math.max(0, Math.round(Number(amount) || 0));
+  if(!s || !xp) return;
+  ensureWeek(s);
+  s.xp = (Number(s.xp) || 0) + xp;
+  s.weeklyXp = (Number(s.weeklyXp) || 0) + xp;
+  showXPGain(xp);
+}
+function showXPGain(amount){
+  if(screen !== 'app') return;
+  const start = { ...lastClickPoint };
+  requestAnimationFrame(() => {
+    let target = document.querySelector('.app-topbar .xp-bar-wrap');
+    if(!target || target.getBoundingClientRect().width === 0) target = document.querySelector('.app-topbar .pill.level');
+    if(!target) return;
+    const rect = target.getBoundingClientRect();
+    const end = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    const count = Math.min(12, Math.max(4, Math.ceil(amount / 10)));
+    for(let i=0;i<count;i++){
+      const particle = document.createElement('span');
+      particle.className = 'xp-particle';
+      particle.textContent = '✦';
+      particle.style.left = (start.x + (Math.random() - .5) * 28) + 'px';
+      particle.style.top = (start.y + (Math.random() - .5) * 28) + 'px';
+      document.body.appendChild(particle);
+      const delay = i * 75;
+      setTimeout(() => {
+        const curveX = (end.x - start.x) * .55;
+        const curveY = Math.min(-48, (end.y - start.y) * .25);
+        particle.animate([
+          { transform: 'translate(0,0) scale(.55)', opacity: 0 },
+          { transform: `translate(${curveX}px,${curveY}px) scale(1.2)`, opacity: 1, offset: .35 },
+          { transform: `translate(${end.x-start.x}px,${end.y-start.y}px) scale(.2)`, opacity: .15 }
+        ], { duration: 620, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'forwards' }).onfinish = () => {
+          particle.remove();
+          if(i === count - 1){
+            target.classList.remove('xp-bar-hit');
+            void target.offsetWidth;
+            target.classList.add('xp-bar-hit');
+            const label = document.createElement('span');
+            label.className = 'xp-gain-label';
+            label.textContent = '+' + amount + ' XP';
+            (target.classList.contains('pill') ? target : target.parentElement).appendChild(label);
+            setTimeout(() => label.remove(), 1000);
+          }
+        };
+      }, delay);
+    }
+  });
+}
+function watchCurrentUserXP(s){
+  if(!s || !s.uid || !window.watchUserXP || xpWatchUid === s.uid) return;
+  if(xpWatchUnsubscribe) xpWatchUnsubscribe();
+  xpWatchUid = s.uid;
+  let initial = true;
+  xpWatchUnsubscribe = window.watchUserXP(s.uid, cloud => {
+    if(initial){ initial = false; return; }
+    if(!currentUser || !users[currentUser] || users[currentUser].uid !== s.uid) return;
+    const live = users[currentUser];
+    const remoteXP = Number(cloud.xp) || 0;
+    const delta = remoteXP - (Number(live.xp) || 0);
+    live.weekId = cloud.weekId || live.weekId;
+    live.weeklyXp = Number(cloud.weeklyXp) || 0;
+    if(delta > 0){
+      live.xp = remoteXP;
+      if(Date.now() > xpWatchQuietUntil) showXPGain(delta);
+      persistLocal();
+      publishPublicCard(live);
+      render(false);
+    }
+  });
 }
 function ensureWeek(s){
   if(!s) return;
@@ -1661,6 +1834,8 @@ function renderPlanCard(plan){
    ========================================================= */
 function renderApp(){
   const s = users[currentUser];
+  watchCurrentUserXP(s);
+  if(s && s.uid) settlePreviousChallengePlacements().catch(err => console.error('Could not settle challenge placements:', err));
   const lvl = levelIndex(s.xp);
   const levelInfo = LEVELS[lvl];
   const nextInfo = LEVELS[lvl+1];
@@ -1687,6 +1862,7 @@ function renderApp(){
       <button type="button" class="app-tab ${appView==='browse'||appView==='upload'?'active':''}" onclick="switchAppView('browse')">Browse</button>
       <button type="button" class="app-tab ${appView==='path'?'active':''}" onclick="switchAppView('path')">Path</button>
       <button type="button" class="app-tab ${appView==='learn'?'active':''}" onclick="switchAppView('learn')">Learn</button>
+      <button type="button" class="app-tab ${appView==='challenges'?'active':''}" onclick="switchAppView('challenges')">Challenges</button>
       <button type="button" class="app-tab ${appView==='leaderboard'||appView==='groups'?'active':''}" onclick="switchAppView('leaderboard')">Leaderboard</button>
       ${currentUserIsAdmin() ? `<button type="button" class="app-tab ${appView==='admin'?'active':''}" onclick="switchAppView('admin')">Admin</button>` : ''}
     </div>
@@ -1696,6 +1872,7 @@ function renderApp(){
         appView==='browse' ? renderBrowse(s) :
         appView==='path' ? renderPath(s) :
         appView==='learn' ? renderLearn(s) :
+        appView==='challenges' ? renderChallenges(s) :
         appView==='leaderboard' ? renderLeaderboard(s) :
         appView==='groups' ? renderGroups(s) :
         appView==='upload' ? renderUpload(s) :
@@ -1740,6 +1917,11 @@ function switchAppView(v, toolId){
     dishStage = 'overview';
     learnToolFocus = null;
     loadLeaderboard();
+  } else if(v === 'challenges'){
+    activeDishId = null;
+    dishStage = 'overview';
+    learnToolFocus = null;
+    loadChallengeData();
   } else if(v === 'browse'){
     activeDishId = null;
     dishStage = 'overview';
@@ -2324,7 +2506,7 @@ function finalizeDish(dishId, photo){
  
   const prevLevel = levelIndex(s.xp);
   s.completed.push(dish.id);
-  s.xp += dish.xp;
+  awardXP(s, dish.xp);
   const newLevel = levelIndex(s.xp);
   if(!dish.community) s.currentGroup = currentPathGroup(s);
  
@@ -2344,9 +2526,6 @@ function finalizeDish(dishId, photo){
   const newBadges = BADGES.filter(b=>!s.badges.includes(b.id) && b.check(s));
   newBadges.forEach(b=>s.badges.push(b.id));
 
-  ensureWeek(s);
-  s.weeklyXp = (s.weeklyXp || 0) + dish.xp;
-
   syncUserProfile(currentUser, s);
 
   // Keep the photo they uploaded for this completion (visible to admins).
@@ -2360,6 +2539,12 @@ function finalizeDish(dishId, photo){
     const key = String(dish.id);
     dish.completions = (Number(dish.completions) || 0) + 1;
     waitRecipes().then(() => window.incrementRecipeStat(key, 'completions')).then(() => loadCompletions(key)).catch(e => console.error('Could not record completion:', e));
+    if(dish.authorUid){
+      xpWatchQuietUntil = Date.now() + 5000;
+      waitFirestore().then(() => window.awardRecipeCompletionXP({ recipeId: key, completerUid: s.uid, awardWeekId: currentWeekId() }))
+        .then(result => { if(result && result.awarded && result.authorUid === s.uid){ s.xp = result.xp - 10; s.weeklyXp = result.weeklyXp - 10; s.weekId = currentWeekId(); awardXP(s, 10); syncUserProfile(currentUser, s); render(false); } })
+        .catch(e => console.error('Could not award recipe completion XP:', e));
+    }
   }
   completionPhoto = '';
  
@@ -2587,6 +2772,121 @@ function filteredCommunityDishes(){
     return hay.indexOf(q) !== -1;
   });
 }
+function settlePreviousChallengePlacements(entries, weekId){
+  const currentWeek = weekId || currentWeekId();
+  if(challengeSettlementWeek === currentWeek) return challengeSettlementPromise || Promise.resolve(challengePastEntries || []);
+  challengeSettlementWeek = currentWeek;
+  const pastWeek = previousWeekId(currentWeek);
+  challengeSettlementPromise = (entries ? Promise.resolve(entries) : waitFirestore().then(() => window.listChallengeEntries(pastWeek)))
+    .then(async past => {
+      const s = users[currentUser];
+      for(let i=0;i<Math.min(10, (past || []).length);i++){
+        xpWatchQuietUntil = Date.now() + 5000;
+        const result = await window.awardChallengePlacement({ entryId: past[i].id, xp: CHALLENGE_PLACEMENT_XP[i], weekId: currentWeek });
+        if(result && result.awarded && s && result.uid === s.uid){
+          s.xp = result.xp - CHALLENGE_PLACEMENT_XP[i];
+          s.weeklyXp = result.weeklyXp - CHALLENGE_PLACEMENT_XP[i];
+          s.weekId = currentWeek;
+          awardXP(s, CHALLENGE_PLACEMENT_XP[i]);
+          syncUserProfile(currentUser, s);
+          render(false);
+        }
+      }
+      return past || [];
+    })
+    .catch(err => { challengeSettlementWeek = ''; challengeSettlementPromise = null; throw err; });
+  return challengeSettlementPromise;
+}
+function loadChallengeData(){
+  if(challengeLoading) return;
+  challengeLoading = true;
+  challengeNotice = '';
+  render(false);
+  const s = users[currentUser];
+  const weekId = currentWeekId();
+  const challengeId = weekId;
+  const prevId = previousWeekId(weekId);
+  Promise.all([
+    waitFirestore().then(() => window.listChallengeEntries(challengeId)),
+    waitFirestore().then(() => window.getMyChallengeOptions(s.uid)),
+    waitFirestore().then(() => window.getMyChallengeVote(challengeId)),
+    waitFirestore().then(() => window.listChallengeEntries(prevId))
+  ]).then(async ([entries, options, vote, past]) => {
+    challengeEntries = entries || [];
+    challengeOptions = options || [];
+    challengeVote = vote || null;
+    challengePastEntries = await settlePreviousChallengePlacements(past || [], weekId);
+    challengeLoading = false;
+    if(appView === 'challenges') render(false);
+  }).catch(err => {
+    console.error('Could not load weekly challenge:', err);
+    challengeLoading = false;
+    challengeNotice = 'Could not load this week’s challenge. Please try again.';
+    if(appView === 'challenges') render(false);
+  });
+}
+function renderChallenges(s){
+  const weekId = currentWeekId();
+  const ranked = challengeEntries || [];
+  const past = challengePastEntries || [];
+  const currentEntry = ranked.find(e => e.uid === s.uid);
+  const voted = !!challengeVote;
+  return `
+    <section class="challenge-page">
+      <div class="challenge-heading">
+        <div><div class="eyebrow">This week · ${esc(weekId)}</div><h1>Weekly challenge</h1><p>Enter a dish you’ve shared on Chyve, then let the community vote on the photo.</p></div>
+        <div class="challenge-countdown">${esc(weekResetLabel())}</div>
+      </div>
+      <div class="challenge-feature">
+        <div class="challenge-feature-copy"><span class="challenge-kicker">THE CHALLENGE</span><h2>${esc(challengeTitle(weekId))}</h2><p>Choose one of your approved recipes with a saved completion photo. Entries close when the week ends.</p></div>
+        <div class="challenge-prize"><b>Top 10</b><span>earn XP</span><small>1st · 500 XP &nbsp; 2nd · 400 XP &nbsp; 3rd · 300 XP</small></div>
+      </div>
+      ${challengeNotice ? `<div class="challenge-notice">${esc(challengeNotice)}</div>` : ''}
+      ${challengeLoading ? `<div class="skel"></div><div class="skel"></div>` : `
+        ${currentEntry ? `<div class="challenge-entry-confirm">Your entry is in: <b>${esc(currentEntry.recipeName)}</b></div>` : `
+          <div class="challenge-submit">
+            <div><h3>Enter this week</h3><p>Recipes need to be published by you and have a saved completion photo.</p></div>
+            ${challengeOptions.length ? `<div class="challenge-submit-controls"><select id="challenge-recipe-choice" onchange="challengeRecipeChoice=this.value"><option value="">Choose a recipe</option>${challengeOptions.map(o=>`<option value="${esc(o.id)}" ${challengeRecipeChoice===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select><button type="button" class="btn btn-primary" onclick="submitWeeklyChallenge()" ${challengeBusy?'disabled':''}>${challengeBusy?'Entering…':'Submit entry'}</button></div>` : `<div class="challenge-no-options">No eligible recipes yet. Publish a recipe, cook it, and save a completion photo to enter.</div>`}
+          </div>
+        `}
+        <div class="challenge-vote-note">${voted ? 'You’ve cast your vote this week.' : 'Vote for your favorite entry. Your first-ever challenge vote earns a one-time 50 XP bonus.'}</div>
+        <div class="challenge-entry-grid">
+          ${ranked.length ? ranked.map((entry,i)=>`<article class="challenge-entry-card"><div class="challenge-entry-photo"><img src="${esc(safePhotoSrc(entry.photo))}" alt="${esc(entry.recipeName)}" loading="lazy"><span class="challenge-rank">#${i+1}</span></div><div class="challenge-entry-info"><div class="challenge-entry-title">${esc(entry.recipeName)}</div><div class="challenge-entry-by">by ${esc(entry.username || 'Cook')}</div><div class="challenge-entry-actions"><span>${Number(entry.votes)||0} vote${Number(entry.votes)===1?'':'s'}</span>${!voted && entry.uid!==s.uid ? `<button type="button" class="btn btn-small btn-gold" onclick="voteWeeklyChallenge('${jsStr(entry.id)}')">Vote</button>` : entry.uid===s.uid ? '<span class="challenge-own-entry">Your entry</span>' : ''}</div></div></article>`).join('') : `<div class="empty-illus challenge-empty">No entries yet — be the first to cook up a submission.</div>`}
+        </div>
+        ${past.length ? `<section class="challenge-past"><h3>Last week’s winners</h3><div class="challenge-winners">${past.slice(0,10).map((entry,i)=>`<div class="challenge-winner-row"><b>#${i+1} ${esc(entry.username||'Cook')}</b><span>${esc(entry.recipeName)}</span><strong>+${CHALLENGE_PLACEMENT_XP[i]} XP</strong></div>`).join('')}</div></section>` : ''}
+      `}
+    </section>
+  `;
+}
+async function submitWeeklyChallenge(){
+  if(challengeBusy || !challengeRecipeChoice) { if(!challengeRecipeChoice) showNotice('Choose one of your recipes first.'); return; }
+  challengeBusy = true; render(false);
+  try{
+    const entry = await window.submitChallengeEntry({ challengeId: currentWeekId(), weekId: currentWeekId(), recipeId: challengeRecipeChoice, username: currentUser });
+    challengeEntries = [entry].concat(challengeEntries || []);
+    challengeNotice = '';
+    showNotice('Your challenge entry is live!');
+  }catch(err){ challengeNotice = err.message || 'Could not submit your entry.'; }
+  challengeBusy = false; render(false);
+}
+async function voteWeeklyChallenge(entryId){
+  if(challengeBusy || challengeVote) return;
+  challengeBusy = true; render(false);
+  try{
+    xpWatchQuietUntil = Date.now() + 5000;
+    const result = await window.voteChallengeEntry({ challengeId: currentWeekId(), entryId, weekId: currentWeekId() });
+    challengeVote = { entryId };
+    challengeEntries = await window.listChallengeEntries(currentWeekId());
+    if(result.bonus){
+      const s = users[currentUser];
+      s.xp = result.xp - 50; s.weeklyXp = result.weeklyXp - 50; s.weekId = currentWeekId();
+      awardXP(s, 50); s.challengeVoteBonusClaimed = true; syncUserProfile(currentUser, s);
+    }
+    challengeNotice = result.bonus ? 'Vote counted — you earned your one-time 50 XP bonus!' : 'Your vote has been counted.';
+  }catch(err){ challengeNotice = err.message || 'Could not submit your vote.'; }
+  challengeBusy = false; render(false);
+}
+
 function renderBrowse(s){
   const head = pageCornerHead(
     'Browse recipes',
