@@ -179,6 +179,10 @@ let challengeSettlementPromise = null;
 let xpWatchUid = '';
 let xpWatchUnsubscribe = null;
 let xpWatchQuietUntil = 0;
+let xpVisualUid = '';
+let xpVisualValue = null;
+let xpVisualQueue = [];
+let xpVisualRunning = false;
 let lastClickPoint = { x: Math.round(window.innerWidth * 0.5), y: Math.round(window.innerHeight * 0.5) };
 
 document.addEventListener('pointerdown', event => {
@@ -332,52 +336,84 @@ function challengeTitle(weekId){
 function awardXP(s, amount){
   const xp = Math.max(0, Math.round(Number(amount) || 0));
   if(!s || !xp) return;
+  const previousXP = Number(s.xp) || 0;
   ensureWeek(s);
   s.xp = (Number(s.xp) || 0) + xp;
   s.weeklyXp = (Number(s.weeklyXp) || 0) + xp;
-  showXPGain(xp);
+  animateXPGain(s, xp, previousXP);
 }
-function showXPGain(amount){
-  if(screen !== 'app') return;
+function getXPVisualValue(s){
+  const uid = s && (s.uid || currentUser);
+  if(uid && xpVisualUid === uid && Number.isFinite(xpVisualValue)) return xpVisualValue;
+  return Number(s && s.xp) || 0;
+}
+function animateXPGain(s, amount, baseXP){
+  const uid = s && (s.uid || currentUser);
+  if(!uid) return;
+  if(xpVisualUid !== uid){ xpVisualUid = uid; xpVisualValue = Number(baseXP) || 0; xpVisualQueue = []; }
+  if(screen !== 'app') { xpVisualValue = Number(s.xp) || 0; return; }
+  const points = Math.max(1, Math.round(Number(amount) || 0));
+  const count = Math.min(10, Math.max(3, Math.ceil(points / 30)));
   const start = { ...lastClickPoint };
-  requestAnimationFrame(() => {
+  for(let i=0;i<count;i++){
+    const earned = Math.floor(points / count) + (i < points % count ? 1 : 0);
+    xpVisualQueue.push({ uid, earned, start });
+  }
+  drainXPVisualQueue();
+}
+async function drainXPVisualQueue(){
+  if(xpVisualRunning) return;
+  xpVisualRunning = true;
+  while(xpVisualQueue.length){
+    const item = xpVisualQueue.shift();
+    const live = users[currentUser];
+    if(screen !== 'app' || !live || live.uid !== item.uid){
+      if(xpVisualUid === item.uid) xpVisualValue = Number(live && live.xp) || xpVisualValue;
+      continue;
+    }
     let target = document.querySelector('.app-topbar .xp-bar-wrap');
     if(!target || target.getBoundingClientRect().width === 0) target = document.querySelector('.app-topbar .pill.level');
-    if(!target) return;
+    if(!target){ xpVisualValue = Number(live.xp) || xpVisualValue; continue; }
     const rect = target.getBoundingClientRect();
     const end = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    const count = Math.min(12, Math.max(4, Math.ceil(amount / 10)));
-    for(let i=0;i<count;i++){
-      const particle = document.createElement('span');
-      particle.className = 'xp-particle';
-      particle.textContent = '✦';
-      particle.style.left = (start.x + (Math.random() - .5) * 28) + 'px';
-      particle.style.top = (start.y + (Math.random() - .5) * 28) + 'px';
-      document.body.appendChild(particle);
-      const delay = i * 75;
-      setTimeout(() => {
-        const curveX = (end.x - start.x) * .55;
-        const curveY = Math.min(-48, (end.y - start.y) * .25);
-        particle.animate([
-          { transform: 'translate(0,0) scale(.55)', opacity: 0 },
-          { transform: `translate(${curveX}px,${curveY}px) scale(1.2)`, opacity: 1, offset: .35 },
-          { transform: `translate(${end.x-start.x}px,${end.y-start.y}px) scale(.2)`, opacity: .15 }
-        ], { duration: 620, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'forwards' }).onfinish = () => {
-          particle.remove();
-          if(i === count - 1){
-            target.classList.remove('xp-bar-hit');
-            void target.offsetWidth;
-            target.classList.add('xp-bar-hit');
-            const label = document.createElement('span');
-            label.className = 'xp-gain-label';
-            label.textContent = '+' + amount + ' XP';
-            (target.classList.contains('pill') ? target : target.parentElement).appendChild(label);
-            setTimeout(() => label.remove(), 1000);
-          }
-        };
-      }, delay);
+    const particle = document.createElement('span');
+    particle.className = 'xp-particle';
+    particle.textContent = '✦';
+    particle.style.left = item.start.x + 'px';
+    particle.style.top = item.start.y + 'px';
+    document.body.appendChild(particle);
+    await new Promise(resolve => {
+      const dx = end.x - item.start.x, dy = end.y - item.start.y;
+      const animation = particle.animate([
+        { transform: 'translate(0,0) scale(.65)', opacity: .1 },
+        { transform: `translate(${dx*.52}px,${Math.min(-36,dy*.25)}px) scale(1.25)`, opacity: 1, offset: .42 },
+        { transform: `translate(${dx}px,${dy}px) scale(.15)`, opacity: .15 }
+      ], { duration: 520, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'forwards' });
+      animation.onfinish = resolve;
+      animation.oncancel = resolve;
+    });
+    particle.remove();
+    const current = users[currentUser];
+    if(current && current.uid === item.uid && screen === 'app'){
+      xpVisualValue = (Number(xpVisualValue) || 0) + item.earned;
+      render(false);
+      requestAnimationFrame(() => {
+        let hitTarget = document.querySelector('.app-topbar .xp-bar-wrap');
+        if(!hitTarget || hitTarget.getBoundingClientRect().width === 0) hitTarget = document.querySelector('.app-topbar .pill.level');
+        if(!hitTarget) return;
+        hitTarget.classList.remove('xp-bar-hit');
+        void hitTarget.offsetWidth;
+        hitTarget.classList.add('xp-bar-hit');
+        const label = document.createElement('span');
+        label.className = 'xp-gain-label';
+        label.textContent = '+' + item.earned + ' XP';
+        (hitTarget.classList.contains('pill') ? hitTarget : hitTarget.parentElement).appendChild(label);
+        setTimeout(() => label.remove(), 850);
+      });
     }
-  });
+    await new Promise(resolve => setTimeout(resolve, 90));
+  }
+  xpVisualRunning = false;
 }
 function watchCurrentUserXP(s){
   if(!s || !s.uid || !window.watchUserXP || xpWatchUid === s.uid) return;
@@ -393,8 +429,9 @@ function watchCurrentUserXP(s){
     live.weekId = cloud.weekId || live.weekId;
     live.weeklyXp = Number(cloud.weeklyXp) || 0;
     if(delta > 0){
+      const oldXP = Number(live.xp) || 0;
       live.xp = remoteXP;
-      if(Date.now() > xpWatchQuietUntil) showXPGain(delta);
+      if(Date.now() > xpWatchQuietUntil) animateXPGain(live, delta, oldXP);
       persistLocal();
       publishPublicCard(live);
       render(false);
@@ -1834,12 +1871,14 @@ function renderPlanCard(plan){
    ========================================================= */
 function renderApp(){
   const s = users[currentUser];
+  if(s && s.uid && xpVisualUid !== s.uid){ xpVisualUid = s.uid; xpVisualValue = Number(s.xp) || 0; xpVisualQueue = []; }
   watchCurrentUserXP(s);
   if(s && s.uid) settlePreviousChallengePlacements().catch(err => console.error('Could not settle challenge placements:', err));
-  const lvl = levelIndex(s.xp);
+  const visibleXP = getXPVisualValue(s);
+  const lvl = levelIndex(visibleXP);
   const levelInfo = LEVELS[lvl];
   const nextInfo = LEVELS[lvl+1];
-  const pct = nextInfo ? Math.round(((s.xp - levelInfo.threshold)/(nextInfo.threshold-levelInfo.threshold))*100) : 100;
+  const pct = nextInfo ? Math.round(((visibleXP - levelInfo.threshold)/(nextInfo.threshold-levelInfo.threshold))*100) : 100;
  
   return `
   <div class="app-shell">
@@ -2447,7 +2486,7 @@ async function completeDish(dishId){
   let outcome;
   try{
     if(typeof window.apiCheck !== 'function') throw new Error('apiCheck is not loaded');
-    const res = await window.apiCheck(photo, recipeTextFor(dish));
+    const res = await window.apiCheck(photo, recipeTextFor(dish), dish.photo);
     console.log('apiCheck result:', res);
     outcome = { complete: res.complete === true, reason: res.reason || '', error: false };
   }catch(e){

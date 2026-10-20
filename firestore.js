@@ -483,14 +483,17 @@ function parseCheckResult(raw) {
   throw new Error("Could not read the checker's response.");
 }
 
-/* apiCheck(image, recipe)
+/* apiCheck(image, recipe, bannerPhoto)
    image:  the uploaded photo as a data URL (or raw base64)
    recipe: a string, or { name, ingredients: [], steps: [] }
+   bannerPhoto: the recipe's reference/banner photo as a URL or data URL
    Resolves to { complete: boolean, confidence: number, reason: string }. Throws on failure. */
-async function apiCheck(image, recipe) {
+async function apiCheck(image, recipe, bannerPhoto) {
   // Keep data URLs intact: the server passes these to OpenAI as input_image.image_url.
   const photo = String(image || "").trim();
   if (!photo) throw new Error("No photo provided.");
+  const referencePhoto = String(bannerPhoto || "").trim();
+  if (!referencePhoto) throw new Error("No recipe banner photo provided.");
 
   let recipeText = recipe;
   if (recipe && typeof recipe === "object") {
@@ -506,7 +509,7 @@ async function apiCheck(image, recipe) {
     const response = await fetch(CHYVE_API_URL + "/api/check", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recipe: recipeText, photo: photo }),
+      body: JSON.stringify({ recipe: recipeText, photo: photo, bannerPhoto: referencePhoto }),
       signal: controller.signal
     });
     const data = await response.json();
