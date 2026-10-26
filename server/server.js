@@ -57,7 +57,8 @@ app.post("/api/upload-image", async (req, res) => {
     form.append("file", source);
     form.append("folder", `chyve/${folder}`);
     form.append("transformation", "c_limit,w_1280,h_1280,q_auto:low,f_jpg");
-    const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/`+cloudName+`/image/upload`, {
+    console.log("https://api.cloudinary.com/v1_1/"+cloudName+"/image/upload")
+    const cloudinaryResponse = await fetch("https://api.cloudinary.com/v1_1/"+cloudName+"/image/upload", {
       method: "POST",
       headers: { Authorization: `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}` },
       body: form
