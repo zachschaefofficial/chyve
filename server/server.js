@@ -17,7 +17,7 @@ const ai = new OpenAI({
   apiKey: process.env.OPENAI
 });
 function getCloudinaryConfig() {
-  const cloudinaryUrl = process.env.CLOUDINARY_URL;
+  const cloudinaryUrl = process.env.CLOUD;
   if (cloudinaryUrl) {
     const parsed = new URL(cloudinaryUrl);
     return {
@@ -27,22 +27,16 @@ function getCloudinaryConfig() {
     };
   }
   return {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME || process.env.CLOUD_NAME,
+    cloudName: "Root",
     apiKey: process.env.CLOUDINARY_API_KEY || process.env.CLOUD,
-    apiSecret: process.env.CLOUDINARY_API_SECRET || process.env.CLOUD_SECRET
+    apiSecret: process.env.CLOUDINARY_API_SECRET || process.env.CLOUD
   };
 }
 
 app.post("/api/upload-image", async (req, res) => {
   try {
     const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
-    if (!cloudName || !apiKey || !apiSecret) {
-      return res.status(503).json({ error: "Image uploads are not configured on the server." });
-    }
     const image = String(req.body?.image || "").trim();
-    if (!image || image.length > 14_000_000) {
-      return res.status(413).json({ error: "Choose an image smaller than 10 MB." });
-    }
     const isDataImage = /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(image);
     let source = image;
     if (!isDataImage) {
@@ -69,10 +63,6 @@ app.post("/api/upload-image", async (req, res) => {
       body: form
     });
     const uploaded = await cloudinaryResponse.json().catch(() => ({}));
-    if (!cloudinaryResponse.ok || !uploaded.secure_url) {
-      console.error("Cloudinary image upload failed:", uploaded.error?.message || cloudinaryResponse.status);
-      return res.status(502).json({ error: "The photo could not be saved. Please try again." });
-    }
     return res.json({ secure_url: uploaded.secure_url, public_id: uploaded.public_id, bytes: uploaded.bytes, format: uploaded.format });
   } catch (error) {
     console.error("/api/upload-image failed:", error.message);
