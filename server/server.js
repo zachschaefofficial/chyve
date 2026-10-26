@@ -27,7 +27,7 @@ function getCloudinaryConfig() {
     };
   }
   return {
-    cloudName: "Root",
+    cloudName: "zxb7ujtp",
     apiKey: process.env.CLOUDINARY_API_KEY || process.env.CLOUD,
     apiSecret: process.env.CLOUDINARY_API_SECRET || process.env.CLOUD
   };
