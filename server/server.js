@@ -16,7 +16,69 @@ import OpenAI from "openai";
 const ai = new OpenAI({
   apiKey: process.env.OPENAI
 });
+function getCloudinaryConfig() {
+  const cloudinaryUrl = process.env.CLOUDINARY_URL;
+  if (cloudinaryUrl) {
+    const parsed = new URL(cloudinaryUrl);
+    return {
+      cloudName: parsed.hostname,
+      apiKey: decodeURIComponent(parsed.username),
+      apiSecret: decodeURIComponent(parsed.password)
+    };
+  }
+  return {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || process.env.CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY || process.env.CLOUD,
+    apiSecret: process.env.CLOUDINARY_API_SECRET || process.env.CLOUD_SECRET
+  };
+}
 
+app.post("/api/upload-image", async (req, res) => {
+  try {
+    const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
+    if (!cloudName || !apiKey || !apiSecret) {
+      return res.status(503).json({ error: "Image uploads are not configured on the server." });
+    }
+    const image = String(req.body?.image || "").trim();
+    if (!image || image.length > 14_000_000) {
+      return res.status(413).json({ error: "Choose an image smaller than 10 MB." });
+    }
+    const isDataImage = /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(image);
+    let source = image;
+    if (!isDataImage) {
+      let parsed;
+      try { parsed = new URL(image); } catch { return res.status(400).json({ error: "The photo must be an image or a saved Chyve photo." }); }
+      const allowedHost = parsed.protocol === "https:" && (
+        parsed.hostname === "res.cloudinary.com" ||
+        parsed.hostname.endsWith(".firebasestorage.app") ||
+        parsed.hostname === "firebasestorage.googleapis.com" ||
+        parsed.hostname === "storage.googleapis.com"
+      );
+      if (!allowedHost) return res.status(400).json({ error: "That photo URL cannot be imported." });
+      source = parsed.href;
+    }
+    const folders = new Set(["recipes", "completions", "challenges", "avatars"]);
+    const folder = folders.has(String(req.body?.folder)) ? String(req.body.folder) : "recipes";
+    const form = new FormData();
+    form.append("file", source);
+    form.append("folder", `chyve/${folder}`);
+    form.append("transformation", "c_limit,w_1280,h_1280,q_auto:low,f_jpg");
+    const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, {
+      method: "POST",
+      headers: { Authorization: `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}` },
+      body: form
+    });
+    const uploaded = await cloudinaryResponse.json().catch(() => ({}));
+    if (!cloudinaryResponse.ok || !uploaded.secure_url) {
+      console.error("Cloudinary image upload failed:", uploaded.error?.message || cloudinaryResponse.status);
+      return res.status(502).json({ error: "The photo could not be saved. Please try again." });
+    }
+    return res.json({ secure_url: uploaded.secure_url, public_id: uploaded.public_id, bytes: uploaded.bytes, format: uploaded.format });
+  } catch (error) {
+    console.error("/api/upload-image failed:", error.message);
+    return res.status(500).json({ error: "The photo could not be saved. Please try again." });
+  }
+});
 // Responses API image_url accepts a fully qualified URL or a base64 data URL,
 // but not bare base64. Keep compatibility with clients that still send raw data.
 function openAIImageUrl(value) {

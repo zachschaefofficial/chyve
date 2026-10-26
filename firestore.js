@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment, updateDoc, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, sendSignInLinkToEmail, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-storage.js";
 // TODO: Replace the following with your app's Firebase project configuration
 // See: https://support.google.com/firebase/answer/7015592
 const firebaseConfig = {
@@ -16,7 +15,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 async function createUser(email, password, data) {
@@ -121,7 +119,7 @@ async function addRecipeComment({ recipeId, recipeName, text, attachPhoto }) {
   const record = {
     id, recipeId: String(recipeId), recipeName: String(recipeName || recipe.name || "Recipe"),
     uid: user.uid, username: String(userSnap.data().username || userSnap.data().displayName || "Cook"),
-    text: cleanText, createdAt: Date.now(), photoData: attach ? String(recipe.photo || "") : ""
+    text: cleanText, createdAt: Date.now(), photoUrl: attach ? String(recipe.photo || "") : ""
   };
   await setDoc(doc(db, "recipeComments", id), record);
   return record;
@@ -157,12 +155,7 @@ async function getRecipeStats(id) {
     views: (data && Number(data.views)) || 0
   };
 }
-/* ---------- Completion photos ----------
-   Every approved recipe completion is saved in the "completions" collection as
-   { uid, username, recipeId, recipeName, photoUrl | photoData, completedAt }.
-   The photo is shrunk first, then uploaded to Firebase Storage. If Storage isn't
-   available (rules / not enabled / user not signed into Firebase Auth) the shrunk
-   JPEG is stored directly on the Firestore document instead. */
+/* ---------- Image upload and completion photos ---------- */
 function shrinkImage(dataUrl, maxDim, quality) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -210,25 +203,24 @@ async function saveCompletionPhoto({ uid, username, recipeId, recipeName, photo 
     completedAt: Date.now()
   };
   const sourcePhoto = imageDataUrl(photo);
-  let jpeg = await shrinkImage(sourcePhoto, 1280, 0.82);
-  try {
-    const fileRef = storageRef(storage, "completions/" + safeKey(uid) + "/" + safeKey(recipeId) + ".jpg");
-    await uploadString(fileRef, jpeg, "data_url");
-    record.photoUrl = await getDownloadURL(fileRef);
-  } catch (e) {
-    console.warn("Storage upload failed, saving the photo on the Firestore document instead:", e);
-    // A Firestore document must stay under 1 MB, so shrink further until it fits.
-    let dim = 900, q = 0.7;
-    jpeg = await shrinkImage(sourcePhoto, dim, q);
-    while (jpeg.length > 700000 && dim > 300) {
-      dim = Math.round(dim * 0.75);
-      q = Math.max(0.5, q - 0.05);
-      jpeg = await shrinkImage(sourcePhoto, dim, q);
-    }
-    record.photoData = jpeg;
-  }
+  const jpeg = await shrinkImage(sourcePhoto, 1280, 0.5);
+  const asset = await uploadImageToCloudinary(jpeg, "completions");
+  record.photoUrl = asset.url;
+  record.photoCloudinaryId = asset.publicId;
+  record.photoProvider = "cloudinary";
   await setDoc(doc(db, "completions", key), record);
   return record;
+}
+
+async function uploadImageToCloudinary(image, folder = "recipes") {
+  const response = await fetch(CHYVE_API_URL + "/api/upload-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: imageDataUrl(image), folder })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.secure_url) throw new Error(data.error || "Could not upload this photo.");
+  return { url: data.secure_url, publicId: data.public_id || "", bytes: Number(data.bytes) || 0 };
 }
 
 /* ---------- Admin tools ---------- */
@@ -279,12 +271,15 @@ async function getMyChallengeOptions(uid) {
   const photosByRecipe = new Map();
   completionsSnap.docs.forEach(d => {
     const c = d.data() || {};
-    if (c.photoUrl || c.photoData) photosByRecipe.set(String(c.recipeId), c.photoUrl || c.photoData);
+    if (c.photoUrl || c.photoData) photosByRecipe.set(String(c.recipeId), {
+      photoUrl: c.photoUrl || c.photoData,
+      photoCloudinaryId: c.photoCloudinaryId || ""
+    });
   });
   return recipesSnap.docs.map(d => {
     const recipe = d.data() || {};
     const id = recipe.id || d.id;
-    return recipe.approved === true && photosByRecipe.has(String(id)) ? { id: String(id), name: recipe.name || "Recipe", photo: photosByRecipe.get(String(id)) } : null;
+    return recipe.approved === true && photosByRecipe.has(String(id)) ? { id: String(id), name: recipe.name || "Recipe", ...photosByRecipe.get(String(id)) } : null;
   }).filter(Boolean);
 }
 async function listChallengeEntries(challengeId) {
@@ -307,11 +302,20 @@ async function submitChallengeEntry({ challengeId, weekId, recipeId, username })
   const completionSnap = await getDoc(doc(db, "completions", safeKey(user.uid) + "_" + safeKey(recipeId)));
   if (!completionSnap.exists()) throw new Error("Complete this recipe and save a photo before entering.");
   const completion = completionSnap.data() || {};
-  const photo = completion.photoUrl || completion.photoData;
-  if (!photo) throw new Error("This completion has no saved photo.");
+  let photoUrl = completion.photoUrl || completion.photoData;
+  let photoCloudinaryId = completion.photoCloudinaryId || "";
+  if (!photoUrl) throw new Error("This completion has no saved photo.");
+  if (!photoCloudinaryId) {
+    const asset = await uploadImageToCloudinary(photoUrl, "challenges");
+    photoUrl = asset.url;
+    photoCloudinaryId = asset.publicId;
+    await setDoc(doc(db, "completions", safeKey(user.uid) + "_" + safeKey(recipeId)), {
+      photoUrl, photoCloudinaryId, photoProvider: "cloudinary"
+    }, { merge: true });
+  }
   const entryId = safeKey(challengeId) + "_" + safeKey(user.uid);
   const entryRef = doc(db, "challengeEntries", entryId);
-  const entry = { id: entryId, challengeId: String(challengeId), weekId: String(weekId), uid: user.uid, username: String(username || "Cook"), recipeId: String(recipeId), recipeName: String(recipe.name || "Recipe"), photo, votes: 0, createdAt: Date.now() };
+  const entry = { id: entryId, challengeId: String(challengeId), weekId: String(weekId), uid: user.uid, username: String(username || "Cook"), recipeId: String(recipeId), recipeName: String(recipe.name || "Recipe"), photoUrl, photoCloudinaryId, votes: 0, createdAt: Date.now() };
   await runTransaction(db, async tx => {
     const entrySnap = await tx.get(entryRef);
     if (entrySnap.exists()) throw new Error("You already entered this week's challenge.");
@@ -664,6 +668,7 @@ window.getRecipeStats = getRecipeStats;
 window.SignInWithGoogle = SignInWithGoogle;
 window.sendVerificationEmail = sendVerificationEmail; 
 window.saveCompletionPhoto = saveCompletionPhoto;
+window.uploadImageToCloudinary = uploadImageToCloudinary;
 window.listUsersForAdmin = listUsersForAdmin;
 window.getUserCompletions = getUserCompletions;
 window.getMyChallengeOptions = getMyChallengeOptions;

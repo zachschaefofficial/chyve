@@ -2119,7 +2119,7 @@ function renderRecipeComments(dish){
     ${!recipeCommentsLoading && !visibleComments().length ? '<p class="comment-login-note">No comments yet.</p>' : ''}
     <div class="recipe-comment-list">${visibleComments().map(c => `<article class="recipe-comment">
       <div class="recipe-comment-head"><b>${esc(c.username || 'Cook')}</b><time>${esc(c.createdAt ? new Date(c.createdAt).toLocaleString() : '')}</time></div>
-      <p>${esc(c.text)}</p>${c.photoData ? `<img class="comment-photo" src="${esc(safePhotoSrc(c.photoData))}" alt="Recipe photo attached by ${esc(c.username || 'cook')}" loading="lazy">` : ''}
+      <p>${esc(c.text)}</p>${(c.photoUrl || c.photoData) ? `<img class="comment-photo" src="${esc(safePhotoSrc(c.photoUrl || c.photoData))}" alt="Recipe photo attached by ${esc(c.username || 'cook')}" loading="lazy">` : ''}
     </article>`).join('')}</div>
   </section>`;
 }
@@ -2568,11 +2568,9 @@ function finalizeDish(dishId, photo){
   syncUserProfile(currentUser, s);
 
   // Keep the photo they uploaded for this completion (visible to admins).
-  if(photo && s.uid){
-    waitFirestore()
-      .then(() => window.saveCompletionPhoto({ uid: s.uid, username: currentUser, recipeId: dish.id, recipeName: dish.name, photo: photo }))
-      .catch(e => console.error('Could not save the completion photo:', e));
-  }
+  const photoSave = photo && s.uid
+    ? waitFirestore().then(() => window.saveCompletionPhoto({ uid: s.uid, username: currentUser, recipeId: dish.id, recipeName: dish.name, photo }))
+    : Promise.resolve(null);
 
   if(currentUser && dish.community){
     const key = String(dish.id);
@@ -2587,10 +2585,34 @@ function finalizeDish(dishId, photo){
   }
   completionPhoto = '';
  
-  lastCompletion = { dish, leveledUp: newLevel>prevLevel, newLevelIdx:newLevel, newBadges };
+  lastCompletion = { dish, leveledUp: newLevel>prevLevel, newLevelIdx:newLevel, newBadges, photo, photoSaved: !photo || !s.uid, photoSaveError: false };
   dishStage = 'completed';
   spawnConfettiGlobal();
   render();
+  photoSave.then(() => {
+    if(lastCompletion && lastCompletion.dish.id === dish.id){ lastCompletion.photoSaved = true; lastCompletion.photo = ''; render(false); }
+  }).catch(e => {
+    console.error('Could not save the completion photo:', e);
+    if(lastCompletion && lastCompletion.dish.id === dish.id){ lastCompletion.photoSaveError = true; render(false); }
+  });
+}
+
+async function retryCompletionPhoto(){
+  if(!lastCompletion || !lastCompletion.photo || !users[currentUser]?.uid) return;
+  lastCompletion.photoSaveError = false;
+  render(false);
+  try{
+    await waitFirestore();
+    await window.saveCompletionPhoto({ uid: users[currentUser].uid, username: currentUser, recipeId: lastCompletion.dish.id, recipeName: lastCompletion.dish.name, photo: lastCompletion.photo });
+    lastCompletion.photoSaved = true;
+    lastCompletion.photo = '';
+    showNotice('Completion photo saved and ready for challenges.');
+  }catch(e){
+    console.error('Could not save the completion photo:', e);
+    lastCompletion.photoSaveError = true;
+    showNotice('Photo upload failed. Check your connection and retry.');
+  }
+  render(false);
 }
  
 /* ---------- Recipe completed page ---------- */
@@ -2604,6 +2626,7 @@ function renderCompletedPage(s){
       ${completionsText(dish.id) ? `<p class="completed-sub">${completionsText(dish.id)} so far</p>` : ''}
       ${leveledUp ? `<p class="completed-level">You have grown into a ${LEVELS[newLevelIdx].name}!</p>` : ''}
       ${newBadges.length ? `<div class="completed-badges">${newBadges.map(b=>`<div class="completed-badge-chip">${b.name}</div>`).join('')}</div>` : ''}
+      ${lastCompletion.photoSaveError ? `<p class="completed-sub">Your completion is saved, but its photo did not upload.</p><button class="btn btn-ghost" onclick="retryCompletionPhoto()">Retry photo upload</button>` : ''}
       <div class="completed-actions">
         <button class="btn btn-primary" onclick="cookAnotherRecipe()">Cook another recipe</button>
         <button class="btn btn-ghost" onclick="backToChyve()">Back to your Chyve</button>
@@ -2890,7 +2913,7 @@ function renderChallenges(s){
         `}
         <div class="challenge-vote-note">${voted ? 'You’ve cast your vote this week.' : 'Vote for your favorite entry. Your first-ever challenge vote earns a one-time 50 XP bonus.'}</div>
         <div class="challenge-entry-grid">
-          ${ranked.length ? ranked.map((entry,i)=>`<article class="challenge-entry-card"><div class="challenge-entry-photo"><img src="${esc(safePhotoSrc(entry.photo))}" alt="${esc(entry.recipeName)}" loading="lazy"><span class="challenge-rank">#${i+1}</span></div><div class="challenge-entry-info"><div class="challenge-entry-title">${esc(entry.recipeName)}</div><div class="challenge-entry-by">by ${esc(entry.username || 'Cook')}</div><div class="challenge-entry-actions"><span>${Number(entry.votes)||0} vote${Number(entry.votes)===1?'':'s'}</span>${!voted && entry.uid!==s.uid ? `<button type="button" class="btn btn-small btn-gold" onclick="voteWeeklyChallenge('${jsStr(entry.id)}')">Vote</button>` : entry.uid===s.uid ? '<span class="challenge-own-entry">Your entry</span>' : ''}</div></div></article>`).join('') : `<div class="empty-illus challenge-empty">No entries yet — be the first to cook up a submission.</div>`}
+          ${ranked.length ? ranked.map((entry,i)=>`<article class="challenge-entry-card"><div class="challenge-entry-photo"><img src="${esc(safePhotoSrc(entry.photoUrl || entry.photo))}" alt="${esc(entry.recipeName)}" loading="lazy"><span class="challenge-rank">#${i+1}</span></div><div class="challenge-entry-info"><div class="challenge-entry-title">${esc(entry.recipeName)}</div><div class="challenge-entry-by">by ${esc(entry.username || 'Cook')}</div><div class="challenge-entry-actions"><span>${Number(entry.votes)||0} vote${Number(entry.votes)===1?'':'s'}</span>${!voted && entry.uid!==s.uid ? `<button type="button" class="btn btn-small btn-gold" onclick="voteWeeklyChallenge('${jsStr(entry.id)}')">Vote</button>` : entry.uid===s.uid ? '<span class="challenge-own-entry">Your entry</span>' : ''}</div></div></article>`).join('') : `<div class="empty-illus challenge-empty">No entries yet — be the first to cook up a submission.</div>`}
         </div>
         ${past.length ? `<section class="challenge-past"><h3>Last week’s winners</h3><div class="challenge-winners">${past.slice(0,10).map((entry,i)=>`<div class="challenge-winner-row"><b>#${i+1} ${esc(entry.username||'Cook')}</b><span>${esc(entry.recipeName)}</span><strong>+${CHALLENGE_PLACEMENT_XP[i]} XP</strong></div>`).join('')}</div></section>` : ''}
       `}
@@ -3214,7 +3237,7 @@ function handleRecipePhotoPick(e){
     canvas.width = Math.round(img.width * scale);
     canvas.height = Math.round(img.height * scale);
     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-    recipeDraftPhoto = canvas.toDataURL('image/jpeg', 0.72);
+    recipeDraftPhoto = canvas.toDataURL('image/jpeg', 0.5);
     render(false);
     URL.revokeObjectURL(url);
   };
@@ -3314,6 +3337,12 @@ async function submitRecipeUpload(e){
   };
   try{
     await waitRecipes();
+    if(payload.photo){
+      const uploadedImage = await window.uploadImageToCloudinary(payload.photo, 'recipes');
+      payload.photo = uploadedImage.url;
+      payload.photoCloudinaryId = uploadedImage.publicId;
+      payload.photoProvider = 'cloudinary';
+    }
     const result = await window.createRecipe(payload);
     const live = communityDishFromCloud({ ...result.data, id: result.id });
     communityDishes = [live].concat(communityDishes.filter(d => String(d.id) !== String(live.id)));
@@ -3731,7 +3760,7 @@ function handlePhotoPick(e){
   if(!file) return;
   const img = new Image();
   const url = URL.createObjectURL(file);
-  img.onload = function(){
+  img.onload = async function(){
     const canvas = document.createElement('canvas');
     const size = 256;
     canvas.width = size; canvas.height = size;
@@ -3739,12 +3768,19 @@ function handlePhotoPick(e){
     const scale = Math.max(size/img.width, size/img.height);
     const w = img.width*scale, h = img.height*scale;
     ctx.drawImage(img, (size-w)/2, (size-h)/2, w, h);
-    const data = canvas.toDataURL('image/jpeg', 0.72);
-    users[currentUser].photo = data;
-    persistLocal();
-    syncUserProfile(currentUser, users[currentUser]);
-    render(false);
-    URL.revokeObjectURL(url);
+    const data = canvas.toDataURL('image/jpeg', 0.48);
+    try{
+      const uploaded = await window.uploadImageToCloudinary(data, 'avatars');
+      users[currentUser].photo = uploaded.url;
+      persistLocal();
+      syncUserProfile(currentUser, users[currentUser]);
+      render(false);
+    }catch(err){
+      console.error('Could not save profile photo:', err);
+      showNotice('Photo upload failed. Please try again.');
+    }finally{
+      URL.revokeObjectURL(url);
+    }
   };
   img.onerror = function(){ showNotice('Could not read that image.'); URL.revokeObjectURL(url); };
   img.src = url;
@@ -3910,7 +3946,7 @@ function renderAdminComments(){
   if(!rows.length) return '<p class="admin-empty">No community comments.</p>';
   return `<div class="admin-comment-list">${rows.map(c => `<article class="admin-comment-card">
     <div><b>${esc(c.username || 'Cook')}</b> on <b>${esc(c.recipeName || 'Community recipe')}</b><span class="admin-comment-date">${esc(c.createdAt ? new Date(c.createdAt).toLocaleString() : '')}</span></div>
-    <p>${esc(c.text)}</p>${c.photoData ? `<img src="${esc(safePhotoSrc(c.photoData))}" alt="Photo attached to comment" loading="lazy">` : ''}
+    <p>${esc(c.text)}</p>${(c.photoUrl || c.photoData) ? `<img src="${esc(safePhotoSrc(c.photoUrl || c.photoData))}" alt="Photo attached to comment" loading="lazy">` : ''}
     <button type="button" class="btn btn-ghost btn-take-down btn-small" onclick="adminTakeDownComment('${jsStr(c.id)}')">Take down comment</button>
   </article>`).join('')}</div>`;
 }
