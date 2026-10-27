@@ -45,7 +45,7 @@ app.post("/api/upload-image", async (req, res) => {
     const folder = folders.has(String(req.body?.folder)) ? String(req.body.folder) : "recipes";
     const uploaded = await cloudinary.uploader.upload(source, {
       folder: `chyve/${folder}`,
-      transformation: "c_limit,w_1280,h_1280,q_auto:low,f_jpg"
+      transformation: "limit,w_1280,h_1280,q_auto:low,f_jpg"
     });
     return res.json({ secure_url: uploaded.secure_url, public_id: uploaded.public_id, bytes: uploaded.bytes, format: uploaded.format });
   } catch (error) {
