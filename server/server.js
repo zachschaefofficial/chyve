@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { GoogleGenAI } from "@google/genai";
-import crypto from "crypto";
+import { v2 as cloudinary } from "cloudinary";
 import { Resend } from "resend";
 
 const app = express();
@@ -16,42 +16,15 @@ import OpenAI from "openai";
 const ai = new OpenAI({
   apiKey: process.env.OPENAI
 });
-function getCloudinaryConfig() {
-  const cloudinaryUrl = process.env.CLOUDINARY_URL || process.env.CLOUD;
-  if (cloudinaryUrl && /^cloudinary:\/\//i.test(cloudinaryUrl)) {
-    let parsed;
-    try {
-      parsed = new URL(cloudinaryUrl);
-    } catch {
-      throw new Error("Cloudinary configuration URL is invalid.");
-    }
-    if (!parsed.hostname || !parsed.username || !parsed.password) {
-      throw new Error("Cloudinary URL must include a cloud name, API key, and API secret.");
-    }
-    return {
-      cloudName: parsed.hostname,
-      apiKey: decodeURIComponent(parsed.username),
-      apiSecret: decodeURIComponent(parsed.password)
-    };
-  }
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "zxb7ujtp";
-  // Keep the existing CLOUD variable usable as an API key when deployments
-  // store the Cloudinary key there, while requiring the secret separately.
-  const apiKey = process.env.CLOUDINARY_API_KEY || process.env.CLOUD;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
-  if (!apiKey || !apiSecret) {
-    throw new Error("Cloudinary credentials are missing. Set CLOUDINARY_URL or CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.");
-  }
-  return {
-    cloudName,
-    apiKey,
-    apiSecret
-  };
-}
+cloudinary.config({
+  ...(process.env.CLOUDINARY_CLOUD_NAME ? { cloud_name: process.env.CLOUDINARY_CLOUD_NAME } : {}),
+  ...(process.env.CLOUDINARY_API_KEY ? { api_key: process.env.CLOUDINARY_API_KEY } : {}),
+  ...(process.env.CLOUDINARY_API_SECRET ? { api_secret: process.env.CLOUDINARY_API_SECRET } : {}),
+  secure: true
+});
 
 app.post("/api/upload-image", async (req, res) => {
   try {
-    const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
     const image = String(req.body?.image || "").trim();
     if (!image) return res.status(400).json({ error: "No photo was provided." });
     const isDataImage = /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(image);
@@ -70,34 +43,30 @@ app.post("/api/upload-image", async (req, res) => {
     }
     const folders = new Set(["recipes", "completions", "challenges", "avatars"]);
     const folder = folders.has(String(req.body?.folder)) ? String(req.body.folder) : "recipes";
-    const form = new FormData();
-    form.append("file", source);
-    const timestamp = Math.floor(Date.now() / 1000);
-    form.append("folder", `chyve/${folder}`);
-    form.append("transformation", "c_limit,w_1280,h_1280,q_auto:low,f_jpg");
-    form.append("timestamp", String(timestamp));
-    form.append("api_key", apiKey);
-    const signatureParams = {
+    const uploaded = await cloudinary.uploader.upload(source, {
       folder: `chyve/${folder}`,
-      timestamp: String(timestamp),
       transformation: "c_limit,w_1280,h_1280,q_auto:low,f_jpg"
-    };
-    const signatureSource = Object.keys(signatureParams).sort()
-      .map(key => `${key}=${signatureParams[key]}`).join("&") + apiSecret;
-    form.append("signature", crypto.createHash("sha1").update(signatureSource).digest("hex"));
-    const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, {
-      method: "POST",
-      body: form
     });
-    const uploaded = await cloudinaryResponse.json().catch(() => ({}));
-    if (!cloudinaryResponse.ok || !uploaded.secure_url || !uploaded.public_id) {
-      console.error("Cloudinary upload rejected:", uploaded.error?.message || cloudinaryResponse.status);
-      return res.status(502).json({ error: "The photo could not be saved. Please try again." });
-    }
     return res.json({ secure_url: uploaded.secure_url, public_id: uploaded.public_id, bytes: uploaded.bytes, format: uploaded.format });
   } catch (error) {
     console.error("/api/upload-image failed:", error.message);
     return res.status(500).json({ error: "The photo could not be saved. Please try again." });
+  }
+});
+
+app.get("/api/image", async (req, res) => {
+  try {
+    const publicId = String(req.query.public_id || "").trim();
+    if (!publicId) return res.status(400).json({ error: "A public_id is required." });
+    const asset = await cloudinary.api.resource(publicId, { colors: true });
+    return res.json({
+      public_id: asset.public_id,
+      secure_url: asset.secure_url,
+      colors: asset.colors
+    });
+  } catch (error) {
+    console.error("/api/image failed:", error.message);
+    return res.status(404).json({ error: "The image could not be found." });
   }
 });
 // Responses API image_url accepts a fully qualified URL or a base64 data URL,
