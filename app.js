@@ -2233,7 +2233,7 @@ function renderCookingPage(dish, s){
       <div class="complete-btn-row">
         ${done
           ? `<div class="cooked-chip">${checkIconSVG()} Already cooked</div><button class="btn btn-ghost" onclick="closeDish()">Back to choices</button>`
-          : `<button type="button" class="btn btn-gold" ${completionPhoto ? '' : 'disabled style="opacity:.5;cursor:not-allowed;"'} onclick="completeDish('${jsStr(String(dish.id))}')">${completionPhoto ? 'Finish recipe · +' + dish.xp + ' XP' : 'Add a photo to finish · +' + dish.xp + ' XP'}</button>`
+          : `<button type="button" class="btn btn-gold completion-submit-btn" ${completionPhoto ? '' : 'disabled'} onclick="completeDish('${jsStr(String(dish.id))}')"><span>${completionPhoto ? 'Finish this recipe' : 'Add a photo to finish'}</span><b>+${dish.xp} XP</b></button>`
         }
       </div>
     </div>
@@ -2445,20 +2445,22 @@ document.addEventListener('drop', function(e){
 function clearCompletionPhoto(){ completionPhoto = ''; render(false); }
 function completionPhotoCard(){
   return `
-    <div class="recipe-photo-card" style="grid-column:1 / -1;">
+    <div class="recipe-photo-card completion-photo-card" style="grid-column:1 / -1;">
+      <div class="action-eyebrow">Your cooking moment</div>
       <h3>Add a photo of your dish</h3>
-      <p style="color:var(--text-dim);font-size:0.88rem;margin:4px 0 12px;">A photo is required to finish this recipe and earn XP.</p>
+      <p class="completion-photo-hint">Show us what you made to finish the recipe and earn XP.</p>
       <input id="completion-photo-input" type="file" accept="image/*" class="hidden" onchange="handleCompletionPhotoPick(event)">
       ${completionPhoto ? `
         <div class="recipe-photo-preview-wrap"><img src="${completionPhoto}" alt="Your dish"></div>
         <div class="recipe-photo-actions">
-          <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('completion-photo-input').click()">Change photo</button>
-          <button type="button" class="btn btn-ghost btn-small" onclick="clearCompletionPhoto()">Remove</button>
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('completion-photo-input').click()">Change photo</button>
+          <button type="button" class="btn btn-ghost" onclick="clearCompletionPhoto()">Remove photo</button>
         </div>
       ` : `
         <button type="button" class="recipe-photo-drop" onclick="document.getElementById('completion-photo-input').click()">
-          <strong>Add photo</strong>
-          <span>Take or choose a picture of what you cooked.</span>
+          <span class="recipe-photo-icon">${genericImageIconSVG(34)}</span>
+          <strong>Choose your finished dish</strong>
+          <span>Take a photo now or pick one from your device.</span>
         </button>
       `}
     </div>`;
@@ -2585,12 +2587,12 @@ function finalizeDish(dishId, photo){
   }
   completionPhoto = '';
  
-  lastCompletion = { dish, leveledUp: newLevel>prevLevel, newLevelIdx:newLevel, newBadges, photo, photoSaved: !photo || !s.uid, photoSaveError: false };
+  lastCompletion = { dish, leveledUp: newLevel>prevLevel, newLevelIdx:newLevel, newBadges, photo, photoPreview: photo || '', photoSaved: !photo || !s.uid, photoSaveError: false };
   dishStage = 'completed';
   spawnConfettiGlobal();
   render();
-  photoSave.then(() => {
-    if(lastCompletion && lastCompletion.dish.id === dish.id){ lastCompletion.photoSaved = true; lastCompletion.photo = ''; render(false); }
+  photoSave.then(record => {
+    if(lastCompletion && lastCompletion.dish.id === dish.id){ lastCompletion.photoSaved = true; lastCompletion.photoPreview = record && record.photoUrl || lastCompletion.photoPreview; lastCompletion.photo = ''; render(false); }
   }).catch(e => {
     console.error('Could not save the completion photo:', e);
     if(lastCompletion && lastCompletion.dish.id === dish.id){ lastCompletion.photoSaveError = true; render(false); }
@@ -2603,7 +2605,8 @@ async function retryCompletionPhoto(){
   render(false);
   try{
     await waitFirestore();
-    await window.saveCompletionPhoto({ uid: users[currentUser].uid, username: currentUser, recipeId: lastCompletion.dish.id, recipeName: lastCompletion.dish.name, photo: lastCompletion.photo });
+    const savedPhoto = await window.saveCompletionPhoto({ uid: users[currentUser].uid, username: currentUser, recipeId: lastCompletion.dish.id, recipeName: lastCompletion.dish.name, photo: lastCompletion.photo });
+    lastCompletion.photoPreview = savedPhoto.photoUrl || lastCompletion.photoPreview;
     lastCompletion.photoSaved = true;
     lastCompletion.photo = '';
     showNotice('Completion photo saved and ready for challenges.');
@@ -2618,11 +2621,14 @@ async function retryCompletionPhoto(){
 /* ---------- Recipe completed page ---------- */
 function renderCompletedPage(s){
   const { dish, leveledUp, newLevelIdx, newBadges } = lastCompletion;
+  const finishedPhoto = lastCompletion.photoPreview || dish.photo;
   return `
-    <div class="completed-page">
-      ${dishPhotoBanner(dish)}
+    <div class="completed-page completed-celebration">
+      <div class="completion-success-mark" aria-hidden="true">✓</div>
+      <div class="completion-result-photo"><img src="${esc(safePhotoSrc(finishedPhoto))}" alt="Your finished ${esc(dish.name)}"><span>Made by you</span></div>
       <h2>Recipe completed!</h2>
-      <p class="completed-sub">You cooked <b>${dish.name}</b> and earned <b>+${dish.xp} XP</b>.</p>
+      <p class="completed-sub">You cooked <b>${dish.name}</b>. That’s a meal well made.</p>
+      <div class="completion-xp-card"><span>XP EARNED</span><strong>+${dish.xp}</strong><small>Keep cooking to grow your streak</small></div>
       ${completionsText(dish.id) ? `<p class="completed-sub">${completionsText(dish.id)} so far</p>` : ''}
       ${leveledUp ? `<p class="completed-level">You have grown into a ${LEVELS[newLevelIdx].name}!</p>` : ''}
       ${newBadges.length ? `<div class="completed-badges">${newBadges.map(b=>`<div class="completed-badge-chip">${b.name}</div>`).join('')}</div>` : ''}
@@ -2893,6 +2899,7 @@ function renderChallenges(s){
   const past = challengePastEntries || [];
   const currentEntry = ranked.find(e => e.uid === s.uid);
   const voted = !!challengeVote;
+  const selectedRecipe = challengeOptions.find(o => String(o.id) === String(challengeRecipeChoice));
   return `
     <section class="challenge-page">
       <div class="challenge-heading">
@@ -2900,25 +2907,29 @@ function renderChallenges(s){
         <div class="challenge-countdown">${esc(weekResetLabel())}</div>
       </div>
       <div class="challenge-feature">
-        <div class="challenge-feature-copy"><span class="challenge-kicker">THE CHALLENGE</span><h2>${esc(challengeTitle(weekId))}</h2><p>Choose one of your approved recipes with a saved completion photo. Entries close when the week ends.</p></div>
+        <div class="challenge-feature-copy"><span class="challenge-kicker">THE CHALLENGE</span><h2>${esc(challengeTitle(weekId))}</h2><p>Enter an approved recipe with its saved photo. We’ll use your completion photo when available, or the recipe photo.</p></div>
         <div class="challenge-prize"><b>Top 10</b><span>earn XP</span><small>1st · 500 XP &nbsp; 2nd · 400 XP &nbsp; 3rd · 300 XP</small></div>
       </div>
       ${challengeNotice ? `<div class="challenge-notice">${esc(challengeNotice)}</div>` : ''}
       ${challengeLoading ? `<div class="skel"></div><div class="skel"></div>` : `
-        ${currentEntry ? `<div class="challenge-entry-confirm">Your entry is in: <b>${esc(currentEntry.recipeName)}</b></div>` : `
+        ${currentEntry ? `<div class="challenge-entry-confirm"><span class="challenge-confirm-icon">✓</span><div><strong>You’re in the challenge!</strong><span>${esc(currentEntry.recipeName)} is up for community votes.</span></div></div>` : `
           <div class="challenge-submit">
-            <div><h3>Enter this week</h3><p>Recipes need to be published by you and have a saved completion photo.</p></div>
-            ${challengeOptions.length ? `<div class="challenge-submit-controls"><select id="challenge-recipe-choice" onchange="challengeRecipeChoice=this.value"><option value="">Choose a recipe</option>${challengeOptions.map(o=>`<option value="${esc(o.id)}" ${challengeRecipeChoice===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select><button type="button" class="btn btn-primary" onclick="submitWeeklyChallenge()" ${challengeBusy?'disabled':''}>${challengeBusy?'Entering…':'Submit entry'}</button></div>` : `<div class="challenge-no-options">No eligible recipes yet. Publish a recipe, cook it, and save a completion photo to enter.</div>`}
+            <div class="challenge-submit-copy"><span class="challenge-submit-icon" aria-hidden="true">✦</span><div><div class="action-eyebrow">Your turn</div><h3>Enter this week</h3><p>Pick an approved recipe. Your completion photo is used when saved; otherwise we’ll use its recipe photo.</p></div></div>
+            ${challengeOptions.length ? `<div class="challenge-submit-controls"><select id="challenge-recipe-choice" onchange="chooseChallengeRecipe(this.value)"><option value="">Choose a recipe</option>${challengeOptions.map(o=>`<option value="${esc(o.id)}" ${challengeRecipeChoice===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select><button type="button" class="btn btn-primary challenge-submit-btn" onclick="submitWeeklyChallenge()" ${challengeBusy?'disabled':''}>${challengeBusy?'Entering…':'Submit my entry'}</button>${selectedRecipe ? `<div class="challenge-selected-recipe"><img src="${esc(safePhotoSrc(selectedRecipe.photoUrl))}" alt=""><span>${selectedRecipe.photoSource === 'completion' ? 'Completion photo' : 'Recipe photo'} ready · ${esc(selectedRecipe.name)}</span></div>` : ''}</div>` : `<div class="challenge-no-options">Publish an approved recipe with a saved photo to enter this week.</div>`}
           </div>
         `}
-        <div class="challenge-vote-note">${voted ? 'You’ve cast your vote this week.' : 'Vote for your favorite entry. Your first-ever challenge vote earns a one-time 50 XP bonus.'}</div>
+        <div class="challenge-vote-heading"><div><div class="action-eyebrow">Community picks</div><h2>Vote for your favorite</h2><p>${voted ? 'Your vote is locked in. Thanks for supporting a fellow cook.' : 'Choose the dish you’d most love to try. Your first challenge vote earns a 50 XP bonus.'}</p></div>${voted ? '<span class="vote-cast-mark">✓ Vote cast</span>' : '<span class="vote-bonus-pill">+50 XP first vote</span>'}</div>
         <div class="challenge-entry-grid">
-          ${ranked.length ? ranked.map((entry,i)=>`<article class="challenge-entry-card"><div class="challenge-entry-photo"><img src="${esc(safePhotoSrc(entry.photoUrl || entry.photo))}" alt="${esc(entry.recipeName)}" loading="lazy"><span class="challenge-rank">#${i+1}</span></div><div class="challenge-entry-info"><div class="challenge-entry-title">${esc(entry.recipeName)}</div><div class="challenge-entry-by">by ${esc(entry.username || 'Cook')}</div><div class="challenge-entry-actions"><span>${Number(entry.votes)||0} vote${Number(entry.votes)===1?'':'s'}</span>${!voted && entry.uid!==s.uid ? `<button type="button" class="btn btn-small btn-gold" onclick="voteWeeklyChallenge('${jsStr(entry.id)}')">Vote</button>` : entry.uid===s.uid ? '<span class="challenge-own-entry">Your entry</span>' : ''}</div></div></article>`).join('') : `<div class="empty-illus challenge-empty">No entries yet — be the first to cook up a submission.</div>`}
+          ${ranked.length ? ranked.map((entry,i)=>`<article class="challenge-entry-card"><div class="challenge-entry-photo"><img src="${esc(safePhotoSrc(entry.photoUrl || entry.photo))}" alt="${esc(entry.recipeName)}" loading="lazy"><span class="challenge-rank">#${i+1}</span></div><div class="challenge-entry-info"><div class="challenge-entry-title">${esc(entry.recipeName)}</div><div class="challenge-entry-by">by ${esc(entry.username || 'Cook')}</div><div class="challenge-entry-actions"><span class="challenge-vote-count"><b>${Number(entry.votes)||0}</b> vote${Number(entry.votes)===1?'':'s'}</span>${!voted && entry.uid!==s.uid ? `<button type="button" class="btn btn-gold challenge-vote-btn" onclick="voteWeeklyChallenge('${jsStr(entry.id)}')" ${challengeBusy?'disabled':''}>${challengeBusy?'Saving…':'Vote for this dish'}</button>` : entry.uid===s.uid ? '<span class="challenge-own-entry">Your entry</span>' : voted && challengeVote.entryId===entry.id ? '<span class="challenge-voted-entry">Your vote ✓</span>' : ''}</div></div></article>`).join('') : `<div class="empty-illus challenge-empty">No entries yet — be the first to cook up a submission.</div>`}
         </div>
         ${past.length ? `<section class="challenge-past"><h3>Last week’s winners</h3><div class="challenge-winners">${past.slice(0,10).map((entry,i)=>`<div class="challenge-winner-row"><b>#${i+1} ${esc(entry.username||'Cook')}</b><span>${esc(entry.recipeName)}</span><strong>+${CHALLENGE_PLACEMENT_XP[i]} XP</strong></div>`).join('')}</div></section>` : ''}
       `}
     </section>
   `;
+}
+function chooseChallengeRecipe(recipeId){
+  challengeRecipeChoice = String(recipeId || '');
+  render(false);
 }
 async function submitWeeklyChallenge(){
   if(challengeBusy || !challengeRecipeChoice) { if(!challengeRecipeChoice) showNotice('Choose one of your recipes first.'); return; }
@@ -3121,7 +3132,7 @@ function renderUpload(s){
         <textarea id="recipe-instructions" class="bio-edit upload-area" placeholder="Write the steps" required oninput="recipeDraftInstructions=this.value">${esc(recipeDraftInstructions)}</textarea>
       </div>
       ${renderRecipeMacroForm()}
-      <button type="submit" class="btn btn-gold btn-block" ${socialBusy?'disabled':''}>${socialBusy?'Sending…':'Publish recipe'}</button>
+      <button type="submit" class="btn btn-gold btn-block upload-submit-btn" ${socialBusy?'disabled':''}><span>${socialBusy?'Sending your recipe…':'Publish recipe'}</span>${socialBusy ? '<span class="upload-submit-mark">…</span>' : '<span class="upload-submit-mark">↑</span>'}</button>
     </form>
   `;
 }

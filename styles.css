@@ -689,3 +689,73 @@ h3.section-title{font-size:1rem;margin-bottom:14px;letter-spacing:-0.02em;}
 @keyframes xpLabelFloat{0%{opacity:0;translate:0 4px}20%{opacity:1}100%{opacity:0;translate:0 -22px}}
 @media(max-width:760px){.challenge-entry-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.challenge-feature{align-items:flex-start;flex-direction:column;}.challenge-prize{min-width:0;width:100%;}.challenge-submit{align-items:flex-start;flex-direction:column;}.challenge-submit-controls{width:100%;}.challenge-submit-controls select{flex:1;min-width:0;max-width:none;}}
 @media(max-width:520px){.challenge-heading{align-items:flex-start;flex-direction:column;gap:8px;}.challenge-entry-grid{grid-template-columns:1fr 1fr;gap:9px;}.challenge-entry-info{padding:10px;}.challenge-entry-title{font-size:.88rem;}.challenge-entry-by,.challenge-entry-actions{font-size:.72rem;}.challenge-entry-actions .btn{padding:6px 10px;}.challenge-winner-row{grid-template-columns:95px 1fr;gap:4px 9px;}.challenge-winner-row strong{grid-column:2;}.challenge-prize small{font-size:.65rem;}}
+
+/* ---------- Action moments: cook, share, and vote ---------- */
+.action-eyebrow{color:var(--accent-deep);font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin-bottom:5px;}
+.completion-photo-card{padding:24px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:var(--radius-xl);background:linear-gradient(145deg,var(--surface),var(--accent-soft));box-shadow:var(--shadow-sm);}
+.completion-photo-card h3{font-size:1.25rem;margin-bottom:3px;}
+.completion-photo-hint{color:var(--text-2);font-size:.94rem;margin:0 0 16px;}
+.completion-photo-card .recipe-photo-drop{min-height:260px;aspect-ratio:16/8;border:2px dashed color-mix(in srgb,var(--accent) 38%,var(--line-2));background:color-mix(in srgb,var(--surface) 82%,var(--accent-soft));}
+.completion-photo-card .recipe-photo-drop strong{font-size:1.18rem;}
+.completion-photo-card .recipe-photo-drop span{font-size:.96rem;}
+.completion-submit-btn{min-width:min(100%,300px);min-height:64px;padding:12px 22px;display:flex;justify-content:space-between;align-items:center;gap:24px;border-radius:16px;font-size:1rem;box-shadow:0 7px 18px color-mix(in srgb,var(--gold) 24%,transparent);transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;}
+.completion-submit-btn:not(:disabled):hover,.upload-submit-btn:not(:disabled):hover,.challenge-submit-btn:not(:disabled):hover{transform:translateY(-2px);filter:brightness(1.04);box-shadow:0 12px 24px color-mix(in srgb,var(--accent) 22%,transparent);}
+.completion-submit-btn b{padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.2);white-space:nowrap;font-size:.92rem;}
+.complete-btn-row{justify-content:center;margin-top:12px;}
+.completed-celebration{max-width:680px;padding:26px 28px 32px;border:1px solid var(--line);border-radius:28px;background:var(--surface);box-shadow:var(--shadow-lg);overflow:hidden;}
+.completion-success-mark{width:82px;height:82px;display:grid;place-items:center;margin:4px auto 16px;border-radius:50%;background:linear-gradient(145deg,#44b980,var(--accent));color:#fff;font-size:3rem;font-weight:800;box-shadow:0 10px 26px color-mix(in srgb,var(--accent) 30%,transparent);animation:completionPop .5s cubic-bezier(.2,.8,.2,1) both;}
+.completion-result-photo{position:relative;width:100%;height:clamp(230px,42vw,340px);margin-bottom:24px;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--surface-2);box-shadow:var(--shadow-md);}
+.completion-result-photo img{width:100%;height:100%;display:block;object-fit:cover;}
+.completion-result-photo span{position:absolute;left:14px;bottom:14px;padding:8px 13px;border:1px solid rgba(255,255,255,.3);border-radius:999px;background:rgba(17,29,21,.72);color:#fff;font-size:.78rem;font-weight:800;backdrop-filter:blur(8px);}
+.completed-celebration h2{font-size:clamp(2.2rem,6vw,3.3rem);margin:22px 0 8px;}
+.completion-xp-card{display:flex;flex-direction:column;align-items:center;gap:0;width:min(100%,280px);margin:22px auto 10px;padding:17px 22px;border:1px solid color-mix(in srgb,var(--gold) 28%,var(--line));border-radius:20px;background:linear-gradient(145deg,var(--gold-soft),var(--surface));box-shadow:var(--shadow-sm);}
+.completion-xp-card span{color:var(--gold-deep);font-size:.68rem;font-weight:850;letter-spacing:.16em;}
+.completion-xp-card strong{color:var(--gold-deep);font-size:2.65rem;line-height:1.12;letter-spacing:-.06em;}
+.completion-xp-card small{color:var(--text-2);font-size:.78rem;}
+@keyframes completionPop{0%{opacity:0;transform:scale(.55) rotate(-16deg)}70%{transform:scale(1.08) rotate(3deg)}100%{opacity:1;transform:scale(1)}}
+
+.upload-form{padding:clamp(20px,4vw,34px);border:1px solid var(--line);border-radius:26px;background:var(--surface);box-shadow:var(--shadow-md);}
+.upload-form .recipe-photo-card{margin-bottom:26px;}
+.upload-form .recipe-photo-drop{min-height:260px;border-width:2px;border-radius:20px;background:linear-gradient(145deg,var(--surface),var(--surface-2));}
+.upload-form .recipe-photo-drop strong{font-size:1.2rem;}
+.upload-submit-btn{min-height:62px;margin-top:8px;padding:12px 22px;display:flex;justify-content:center;align-items:center;gap:12px;border-radius:15px;font-size:1.05rem;font-weight:750;box-shadow:0 8px 20px color-mix(in srgb,var(--gold) 22%,transparent);transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;}
+.upload-submit-mark{width:32px;height:32px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.42);border-radius:50%;background:rgba(255,255,255,.18);font-size:1.18rem;line-height:1;}
+.review-page{padding:26px;border:1px solid var(--line);border-radius:28px;background:var(--surface);box-shadow:var(--shadow-lg);}
+.review-page .review-seal{padding:8px 18px;font-size:.82rem;}
+.review-page h2{font-size:clamp(2.2rem,6vw,3.2rem);margin:8px 0 14px;}
+
+.challenge-submit{align-items:center;padding:22px 24px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:22px;background:linear-gradient(115deg,var(--surface),var(--accent-soft));box-shadow:var(--shadow-sm);}
+.challenge-submit-copy{display:flex;align-items:center;gap:14px;min-width:220px;}
+.challenge-submit-copy h3{font-size:1.2rem;margin:0 0 4px;}
+.challenge-submit-icon{width:54px;height:54px;flex:0 0 auto;display:grid;place-items:center;border-radius:17px;background:var(--accent);color:var(--on-accent);font-size:1.7rem;box-shadow:0 7px 16px color-mix(in srgb,var(--accent) 28%,transparent);}
+.challenge-submit-controls{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:10px;min-width:min(52%,470px);}
+.challenge-submit-controls select{max-width:none;min-height:48px;border-radius:12px;font-weight:600;}
+.challenge-submit-btn{min-height:48px;padding:10px 18px;border-radius:12px;font-weight:750;transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;}
+.challenge-selected-recipe{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text-2);font-size:.8rem;font-weight:600;}
+.challenge-selected-recipe img{width:42px;height:42px;flex:0 0 auto;border-radius:9px;object-fit:cover;background:var(--surface-2);}
+.challenge-entry-confirm{display:flex;align-items:center;gap:15px;padding:18px 20px;border:1px solid color-mix(in srgb,var(--accent) 20%,var(--line));border-radius:18px;font-size:1rem;box-shadow:var(--shadow-xs);}
+.challenge-confirm-icon{width:48px;height:48px;flex:0 0 auto;display:grid;place-items:center;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:1.6rem;font-weight:800;}
+.challenge-entry-confirm div{display:flex;flex-direction:column;text-align:left;}
+.challenge-entry-confirm strong{font-size:1.08rem;color:var(--text);}
+.challenge-entry-confirm span:last-child{color:var(--text-2);}
+.challenge-vote-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:34px 0 16px;}
+.challenge-vote-heading h2{font-size:clamp(1.45rem,3vw,2rem);letter-spacing:-.04em;margin:0 0 3px;}
+.challenge-vote-heading p{color:var(--text-2);font-size:.91rem;}
+.vote-bonus-pill,.vote-cast-mark{padding:9px 13px;border-radius:999px;background:var(--gold-soft);color:var(--gold-deep);font-size:.8rem;font-weight:800;white-space:nowrap;}
+.vote-cast-mark{background:var(--accent-soft);color:var(--accent-deep);}
+.challenge-entry-grid{grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:20px;}
+.challenge-entry-card{border-radius:21px;box-shadow:var(--shadow-sm);transition:transform .2s ease,box-shadow .2s ease;}
+.challenge-entry-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);}
+.challenge-entry-photo{aspect-ratio:1.22;}
+.challenge-entry-info{padding:17px 18px 18px;}
+.challenge-entry-title{font-size:1.12rem;}
+.challenge-entry-by{font-size:.85rem;}
+.challenge-entry-actions{align-items:stretch;flex-direction:column;gap:12px;margin-top:15px;}
+.challenge-vote-count{color:var(--text-2);font-size:.85rem;}
+.challenge-vote-count b{color:var(--text);font-size:1.1rem;}
+.challenge-vote-btn{min-height:48px;padding:10px 14px;border-radius:12px;font-size:.92rem;font-weight:800;box-shadow:0 5px 12px color-mix(in srgb,var(--gold) 18%,transparent);}
+.challenge-voted-entry{align-self:flex-start;padding:8px 12px;border-radius:999px;background:var(--accent-soft);color:var(--accent-deep);font-weight:800;}
+.challenge-own-entry{align-self:flex-start;padding:8px 12px;border-radius:999px;background:var(--surface-2);}
+.challenge-empty{padding:52px 20px;font-size:1rem;}
+@media(max-width:760px){.challenge-submit{gap:16px;}.challenge-submit-controls{width:100%;min-width:0;}.challenge-submit-copy{min-width:0;}.challenge-vote-heading{align-items:flex-start;flex-direction:column;}}
+@media(max-width:520px){.completed-celebration{padding:18px 14px 24px;border-radius:22px;}.completion-photo-card{padding:17px;}.completion-photo-card .recipe-photo-drop,.upload-form .recipe-photo-drop{min-height:210px;}.complete-btn-row .completion-submit-btn{width:100%;}.upload-form{padding:18px 14px;border-radius:21px;}.challenge-submit{padding:17px 14px;}.challenge-submit-controls{grid-template-columns:1fr;}.challenge-selected-recipe{grid-column:auto;}.challenge-submit-controls .challenge-submit-btn{width:100%;}.challenge-entry-grid{grid-template-columns:1fr;gap:14px;}.challenge-entry-photo{aspect-ratio:1.35;}.challenge-vote-heading{margin-top:28px;}}

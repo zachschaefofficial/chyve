@@ -273,13 +273,21 @@ async function getMyChallengeOptions(uid) {
     const c = d.data() || {};
     if (c.photoUrl || c.photoData) photosByRecipe.set(String(c.recipeId), {
       photoUrl: c.photoUrl || c.photoData,
-      photoCloudinaryId: c.photoCloudinaryId || ""
+      photoCloudinaryId: c.photoCloudinaryId || "",
+      photoSource: "completion"
     });
   });
   return recipesSnap.docs.map(d => {
     const recipe = d.data() || {};
     const id = recipe.id || d.id;
-    return recipe.approved === true && photosByRecipe.has(String(id)) ? { id: String(id), name: recipe.name || "Recipe", ...photosByRecipe.get(String(id)) } : null;
+    const savedPhoto = photosByRecipe.get(String(id));
+    const recipePhoto = recipe.photo ? {
+      photoUrl: recipe.photo,
+      photoCloudinaryId: recipe.photoCloudinaryId || "",
+      photoSource: "recipe"
+    } : null;
+    const photo = savedPhoto || recipePhoto;
+    return recipe.approved === true && photo ? { id: String(id), name: recipe.name || "Recipe", ...photo } : null;
   }).filter(Boolean);
 }
 async function listChallengeEntries(challengeId) {
@@ -300,18 +308,21 @@ async function submitChallengeEntry({ challengeId, weekId, recipeId, username })
   const recipe = recipeSnap.data() || {};
   if (recipe.authorUid !== user.uid || recipe.approved !== true) throw new Error("Choose one of your approved recipes.");
   const completionSnap = await getDoc(doc(db, "completions", safeKey(user.uid) + "_" + safeKey(recipeId)));
-  if (!completionSnap.exists()) throw new Error("Complete this recipe and save a photo before entering.");
-  const completion = completionSnap.data() || {};
-  let photoUrl = completion.photoUrl || completion.photoData;
-  let photoCloudinaryId = completion.photoCloudinaryId || "";
-  if (!photoUrl) throw new Error("This completion has no saved photo.");
+  const completion = completionSnap.exists() ? completionSnap.data() || {} : {};
+  let photoUrl = completion.photoUrl || completion.photoData || recipe.photo;
+  let photoCloudinaryId = completion.photoUrl || completion.photoData
+    ? completion.photoCloudinaryId || ""
+    : recipe.photoCloudinaryId || "";
+  if (!photoUrl) throw new Error("This recipe has no saved photo.");
   if (!photoCloudinaryId) {
     const asset = await uploadImageToCloudinary(photoUrl, "challenges");
     photoUrl = asset.url;
     photoCloudinaryId = asset.publicId;
-    await setDoc(doc(db, "completions", safeKey(user.uid) + "_" + safeKey(recipeId)), {
-      photoUrl, photoCloudinaryId, photoProvider: "cloudinary"
-    }, { merge: true });
+    if (completionSnap.exists()) {
+      await setDoc(doc(db, "completions", safeKey(user.uid) + "_" + safeKey(recipeId)), {
+        photoUrl, photoCloudinaryId, photoProvider: "cloudinary"
+      }, { merge: true });
+    }
   }
   const entryId = safeKey(challengeId) + "_" + safeKey(user.uid);
   const entryRef = doc(db, "challengeEntries", entryId);
