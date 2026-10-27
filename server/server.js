@@ -17,19 +17,35 @@ const ai = new OpenAI({
   apiKey: process.env.OPENAI
 });
 function getCloudinaryConfig() {
-  const cloudinaryUrl = process.env.CLOUD;
-  if (cloudinaryUrl) {
-    const parsed = new URL(cloudinaryUrl);
+  const cloudinaryUrl = process.env.CLOUDINARY_URL || process.env.CLOUD;
+  if (cloudinaryUrl && /^cloudinary:\/\//i.test(cloudinaryUrl)) {
+    let parsed;
+    try {
+      parsed = new URL(cloudinaryUrl);
+    } catch {
+      throw new Error("Cloudinary configuration URL is invalid.");
+    }
+    if (!parsed.hostname || !parsed.username || !parsed.password) {
+      throw new Error("Cloudinary URL must include a cloud name, API key, and API secret.");
+    }
     return {
       cloudName: parsed.hostname,
       apiKey: decodeURIComponent(parsed.username),
       apiSecret: decodeURIComponent(parsed.password)
     };
   }
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "zxb7ujtp";
+  // Keep the existing CLOUD variable usable as an API key when deployments
+  // store the Cloudinary key there, while requiring the secret separately.
+  const apiKey = process.env.CLOUDINARY_API_KEY || process.env.CLOUD;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  if (!apiKey || !apiSecret) {
+    throw new Error("Cloudinary credentials are missing. Set CLOUDINARY_URL or CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.");
+  }
   return {
-    cloudName: "zxb7ujtp",
-    apiKey: process.env.CLOUDINARY_API_KEY || process.env.CLOUD,
-    apiSecret: process.env.CLOUDINARY_API_SECRET || process.env.CLOUD
+    cloudName,
+    apiKey,
+    apiSecret
   };
 }
 
@@ -37,6 +53,7 @@ app.post("/api/upload-image", async (req, res) => {
   try {
     const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
     const image = String(req.body?.image || "").trim();
+    if (!image) return res.status(400).json({ error: "No photo was provided." });
     const isDataImage = /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(image);
     let source = image;
     if (!isDataImage) {
@@ -55,15 +72,28 @@ app.post("/api/upload-image", async (req, res) => {
     const folder = folders.has(String(req.body?.folder)) ? String(req.body.folder) : "recipes";
     const form = new FormData();
     form.append("file", source);
+    const timestamp = Math.floor(Date.now() / 1000);
     form.append("folder", `chyve/${folder}`);
     form.append("transformation", "c_limit,w_1280,h_1280,q_auto:low,f_jpg");
-    console.log("https://api.cloudinary.com/v1_1/"+cloudName+"/image/upload")
-    const cloudinaryResponse = await fetch("https://api.cloudinary.com/v1_1/"+cloudName+"/image/upload", {
+    form.append("timestamp", String(timestamp));
+    form.append("api_key", apiKey);
+    const signatureParams = {
+      folder: `chyve/${folder}`,
+      timestamp: String(timestamp),
+      transformation: "c_limit,w_1280,h_1280,q_auto:low,f_jpg"
+    };
+    const signatureSource = Object.keys(signatureParams).sort()
+      .map(key => `${key}=${signatureParams[key]}`).join("&") + apiSecret;
+    form.append("signature", crypto.createHash("sha1").update(signatureSource).digest("hex"));
+    const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, {
       method: "POST",
-      headers: { Authorization: `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}` },
       body: form
     });
     const uploaded = await cloudinaryResponse.json().catch(() => ({}));
+    if (!cloudinaryResponse.ok || !uploaded.secure_url || !uploaded.public_id) {
+      console.error("Cloudinary upload rejected:", uploaded.error?.message || cloudinaryResponse.status);
+      return res.status(502).json({ error: "The photo could not be saved. Please try again." });
+    }
     return res.json({ secure_url: uploaded.secure_url, public_id: uploaded.public_id, bytes: uploaded.bytes, format: uploaded.format });
   } catch (error) {
     console.error("/api/upload-image failed:", error.message);
