@@ -3,7 +3,7 @@
    the app and nothing in styles.css can leak in. That is why :root/html/body rules from the
    original file now live on :host. Layout: dark-glass pill nav over a warm studio backdrop,
    left-aligned headline, right-hand phone with glass cards and an orbit of dish photos, then
-   bento cards, a cook-along demo, levels, a photo marquee, plans, and a closing card. */
+   bento cards, a cook-along demo, levels, a photo marquee, and a closing card. */
 :host {
   all: initial;
   display: block;
@@ -291,23 +291,6 @@ section { padding-block: clamp(64px, 9vw, 112px); }
 .dc .cap { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 2; padding: 11px 14px; border-radius: 18px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .dc b { font-size: 13.5px; font-weight: 700; letter-spacing: -.015em; line-height: 1.2; }
 .dc small { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.22); white-space: nowrap; }
-
-/* plans */
-.plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
-.plan { position: relative; overflow: hidden; background: #fff; border-radius: 28px; padding: 30px 28px 28px; display: flex; flex-direction: column; gap: 22px; min-width: 0; transition: transform .6s var(--ease), box-shadow .6s var(--ease); }
-.plan:hover { transform: translateY(-6px); box-shadow: 0 30px 50px -24px rgba(40,30,20,.3); }
-.plan.feat { background: var(--ink); color: #fff; isolation: isolate; }
-.plan.feat::before { content: ""; position: absolute; z-index: -1; width: 300px; height: 300px; right: -90px; top: -110px; border-radius: 50%; background: radial-gradient(closest-side, rgba(198,231,139,.5), transparent); animation: drift 14s ease-in-out infinite; }
-.plan .top { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 18px; letter-spacing: -.02em; }
-.plan .pop { font-size: 11.5px; font-weight: 700; background: var(--lime); color: var(--ink); padding: 4px 11px; border-radius: 999px; letter-spacing: 0; }
-.price { font-size: 48px; font-weight: 700; letter-spacing: -.05em; line-height: 1; }
-.price span { font-size: 15px; font-weight: 500; letter-spacing: 0; opacity: .6; margin-left: 2px; }
-.plan .d { font-size: 14.5px; color: var(--ink-2); margin-top: 10px; } .plan.feat .d { color: rgba(255,255,255,.62); }
-.plan ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 11px; font-size: 14.5px; }
-.plan li { display: flex; gap: 10px; align-items: flex-start; }
-.plan li i { flex: none; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; background: var(--lime); display: grid; place-items: center; color: var(--ink); }
-.plan .btn { margin-top: auto; width: 100%; }
-@media (max-width: 900px) { .plans { grid-template-columns: 1fr; max-width: 460px; margin-inline: auto; } }
 
 /* cta */
 .cta { position: relative; overflow: hidden; isolation: isolate; border-radius: 36px; background: var(--lime); padding: clamp(56px, 8vw, 104px) 24px; text-align: center; display: grid; justify-items: center; gap: 20px; }

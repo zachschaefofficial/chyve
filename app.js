@@ -55,66 +55,12 @@ const BADGES = [
   {id:'post15', name:'Recipe Powerhouse', desc:'Submit 15 recipes for review', check:s=>(s.recipesPosted||0)>=15},
 ];
  
-// Placeholder pricing tiers for the "Upgrade" page. Names echo the LEVELS
-// above on purpose — no payments are wired up, this is a mockup only.
-const PLANS = [
-  {
-    id:'seedling',
-    name:'Seedling',
-    price:'Free',
-    period:'',
-    tagline:'Everything you need to start climbing the vine.',
-    features:[
-      'One suggested dish at a time',
-      'Full recipe path, Seedling to Vintner',
-      'Streaks, XP and badges',
-      'Progress saved to your profile'
-    ],
-    cta:'Current plan',
-    featured:false,
-    disabled:true
-  },
-  {
-    id:'sprout',
-    name:'Sprout+',
-    price:'$4.99',
-    period:'/mo',
-    tagline:'For cooks who want to move at their own pace.',
-    features:[
-      'Everything in Seedling',
-      'Unlock any level immediately',
-      'Adjust ingredient yields on every recipe',
-      'Ad-free, always'
-    ],
-    cta:'Upgrade to Sprout+',
-    featured:true,
-    disabled:false
-  },
-  {
-    id:'vine',
-    name:'Vintner Pro',
-    price:'$9.99',
-    period:'/mo',
-    tagline:'For the ones cooking dinner parties on a Tuesday.',
-    features:[
-      'Everything in Sprout+',
-      'Upload and track your own recipes',
-      'Priority recipe requests',
-      'Early access to new dishes'
-    ],
-    cta:'Upgrade to Vintner Pro',
-    featured:false,
-    disabled:false
-  }
-];
- 
 /* =========================================================
    STATE  (in-memory only — see note in the UI)
    ========================================================= */
 const users = {};      // { username: { username, email, password, xp, streak, completed:[], completionDates:[], badges:[], currentGroup:0, checks:{} } }
 let currentUser = null;
-let screen = 'landing';     // landing | login | signup | app | plans
-let planNotice = '';        // transient message shown on the placeholder Plans page
+let screen = 'landing';     // landing | login | signup | app
 let appView = 'path';       // browse | path | profile | learn | leaderboard
 let avatarOpen = false;
 let activeDishId = null;    // dish currently open in the recipe flow
@@ -894,7 +840,6 @@ function render(scrollTop){
     if(screen==='login') root.innerHTML = renderAuth('login');
     else if(screen==='signup') root.innerHTML = renderAuth('signup');
     else if(screen==='app') root.innerHTML = renderApp();
-    else if(screen==='plans') root.innerHTML = renderPlans();
   }
   if(scrollTop) window.scrollTo(0,0);
 }
@@ -962,7 +907,7 @@ window.addEventListener('popstate', function(e){
     // Signed out: Back can't return to the signed-in app.
     st = { chyve: 1, screen: 'landing' };
     history.replaceState(st, '');
-  } else if(currentUser && st.screen !== 'app' && st.screen !== 'plans'){
+  } else if(currentUser && st.screen !== 'app'){
     // Signed in: Back shouldn't drop you onto the landing / login pages.
     st = navSnapshot();
     st.screen = 'app';
@@ -1089,7 +1034,6 @@ function renderLanding(){
   <nav class="landing-nav">
     <div class="nav-left">
       <div class="brand">${brandMarkSVG(24)}Chyve</div>
-      <button class="btn btn-gold btn-small upgrade-btn" onclick="goToPlans()">${iconSparkle()} Upgrade</button>
     </div>
     <div class="nav-actions">
       <button class="link-btn" onclick="goTo('login')">Log in</button>
@@ -1613,16 +1557,6 @@ function goTo(where){
   render();
 }
  
-function goToPlans(){
-  planNotice = '';
-  avatarOpen = false;
-  screen = 'plans';
-  render();
-}
-function selectPlan(planName){
-  planNotice = `${planName} isn't live yet — this is just a placeholder page for now.`;
-  render(false);
-}
  
 function logout(){
   currentUser = null;
@@ -1839,44 +1773,6 @@ async function loginFromCloud(identifier, password){
 }
  
 /* =========================================================
-   PAGE: PLANS / UPGRADE (placeholder — no billing wired up)
-   ========================================================= */
-function renderPlans(){
-  return `
-  <div class="plans-wrap">
-    <nav class="landing-nav">
-      <div class="brand">Chyve<span class="dot">.</span></div>
-      <button class="btn btn-ghost btn-small" onclick="goTo('${currentUser ? 'app' : 'landing'}')">← Back</button>
-    </nav>
-    <section class="plans-hero">
-      <div class="hero-eyebrow">Grow faster</div>
-      <h1>Choose your plan</h1>
-      <p>Every plan follows the same path from Seedling to Vintner — upgrades just add a few extra tools along the way.</p>
-    </section>
-    <div class="plans-grid">
-      ${PLANS.map(renderPlanCard).join('')}
-    </div>
-    ${planNotice ? `<p class="plans-notice">${planNotice}</p>` : ''}
-    <p class="plans-footnote">This is a placeholder pricing page — no payment is collected and upgrades aren't active yet.</p>
-  </div>`;
-}
-function renderPlanCard(plan){
-  const btnClass = plan.disabled ? 'btn-disabled' : (plan.featured ? 'btn-gold' : 'btn-ghost');
-  const onclick = plan.disabled ? '' : ` onclick="selectPlan('${plan.name}')"`;
-  return `
-  <div class="plan-card ${plan.featured?'featured':''}">
-    ${plan.featured ? `<div class="plan-badge">Most popular</div>` : ''}
-    <h3>${plan.name}</h3>
-    <p class="plan-tagline">${plan.tagline}</p>
-    <div class="plan-price"><span class="amount">${plan.price}</span>${plan.period?`<span class="period">${plan.period}</span>`:''}</div>
-    <ul class="plan-features">
-      ${plan.features.map(f=>`<li>${checkIconSVG()}<span>${f}</span></li>`).join('')}
-    </ul>
-    <button class="btn ${btnClass} btn-block"${onclick} ${plan.disabled?'disabled':''}>${plan.cta}</button>
-  </div>`;
-}
- 
-/* =========================================================
    PAGE: COOKING APP
    ========================================================= */
 function renderApp(){
@@ -1895,7 +1791,6 @@ function renderApp(){
     <div class="app-topbar">
       <div class="app-topbar-brand">
         <div class="brand" style="cursor:pointer;" title="Your profile" onclick="openProfile('${jsStr(currentUser)}')">Chyve</div>
-        <button class="btn btn-gold btn-small upgrade-btn" onclick="goToPlans()">${iconSparkle()} Upgrade</button>
       </div>
       <div class="stat-pills">
         <div class="pill streak">${s.streak} day${s.streak===1?'':'s'}</div>
@@ -2071,6 +1966,15 @@ function backToChyve(){
   lastCompletion = null;
   activeYieldAmount = null;
   appView = 'path';
+  render();
+}
+function openChallengesAfterCompletion(){
+  completionPhoto = '';
+  activeDishId = null;
+  dishStage = 'overview';
+  lastCompletion = null;
+  activeYieldAmount = null;
+  appView = 'challenges';
   render();
 }
  
@@ -2639,11 +2543,13 @@ function renderCompletedPage(s){
       <h2>Recipe completed!</h2>
       <p class="completed-sub">You cooked <b>${dish.name}</b>. That’s a meal well made.</p>
       <div class="completion-xp-card"><span>XP EARNED</span><strong>+${dish.xp}</strong><small>Keep cooking to grow your streak</small></div>
+      <div class="completion-streak-card"><span>🔥</span><div><b>${s.streak}-day cooking streak</b><small>Your kitchen showed up today. Keep it going.</small></div></div>
       ${completionsText(dish.id) ? `<p class="completed-sub">${completionsText(dish.id)} so far</p>` : ''}
       ${leveledUp ? `<p class="completed-level">You have grown into a ${LEVELS[newLevelIdx].name}!</p>` : ''}
       ${newBadges.length ? `<div class="completed-badges">${newBadges.map(b=>`<div class="completed-badge-chip">${b.name}</div>`).join('')}</div>` : ''}
       ${lastCompletion.photoSaveError ? `<p class="completed-sub">Your completion is saved, but its photo did not upload.</p><button class="btn btn-ghost" onclick="retryCompletionPhoto()">Retry photo upload</button>` : ''}
       <div class="completed-actions">
+        <button class="btn btn-gold" onclick="openChallengesAfterCompletion()">See this week’s challenge</button>
         <button class="btn btn-primary" onclick="cookAnotherRecipe()">Cook another recipe</button>
         <button class="btn btn-ghost" onclick="backToChyve()">Back to your Chyve</button>
       </div>
@@ -2928,9 +2834,9 @@ function renderChallenges(s){
             ${challengeOptions.length ? `<div class="challenge-submit-controls"><select id="challenge-recipe-choice" onchange="chooseChallengeRecipe(this.value)"><option value="">Choose a recipe</option>${challengeOptions.map(o=>`<option value="${esc(o.id)}" ${challengeRecipeChoice===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select><button type="button" class="btn btn-primary challenge-submit-btn" onclick="submitWeeklyChallenge()" ${challengeBusy?'disabled':''}>${challengeBusy?'Entering…':'Submit my entry'}</button>${selectedRecipe ? `<div class="challenge-selected-recipe"><img src="${esc(safePhotoSrc(selectedRecipe.photoUrl))}" alt=""><span>${selectedRecipe.photoSource === 'completion' ? 'Completion photo' : 'Recipe photo'} ready · ${esc(selectedRecipe.name)}</span></div>` : ''}</div>` : `<div class="challenge-no-options">Publish an approved recipe with a saved photo to enter this week.</div>`}
           </div>
         `}
-        <div class="challenge-vote-heading"><div><div class="action-eyebrow">Community picks</div><h2>Vote for your favorite</h2><p>${voted ? 'Your vote is locked in. Thanks for supporting a fellow cook.' : 'Choose the dish you’d most love to try. Your first challenge vote earns a 50 XP bonus.'}</p></div>${voted ? '<span class="vote-cast-mark">✓ Vote cast</span>' : '<span class="vote-bonus-pill">+50 XP first vote</span>'}</div>
+        <div class="challenge-vote-heading"><div><div class="action-eyebrow">Community picks</div><h2>Vote for your favorite</h2><p>${voted ? 'Your vote is locked in. Thanks for supporting a fellow cook.' : s.challengeVoteBonusClaimed ? 'Choose one dish to support. You can cast one vote each week.' : 'Choose the dish you’d most love to try. Your first challenge vote earns a 50 XP bonus.'}</p></div>${voted ? '<span class="vote-cast-mark">✓ Vote cast</span>' : s.challengeVoteBonusClaimed ? '<span class="vote-cast-mark">1 vote this week</span>' : '<span class="vote-bonus-pill">+50 XP first vote</span>'}</div>
         <div class="challenge-entry-grid">
-          ${ranked.length ? ranked.map((entry,i)=>`<article class="challenge-entry-card"><div class="challenge-entry-photo"><img src="${esc(safePhotoSrc(entry.photoUrl || entry.photo))}" alt="${esc(entry.recipeName)}" loading="lazy"><span class="challenge-rank">#${i+1}</span></div><div class="challenge-entry-info"><div class="challenge-entry-title">${esc(entry.recipeName)}</div><div class="challenge-entry-by">by ${esc(entry.username || 'Cook')}</div><div class="challenge-entry-actions"><span class="challenge-vote-count"><b>${Number(entry.votes)||0}</b> vote${Number(entry.votes)===1?'':'s'}</span>${!voted && entry.uid!==s.uid ? `<button type="button" class="btn btn-gold challenge-vote-btn" onclick="voteWeeklyChallenge('${jsStr(entry.id)}')" ${challengeBusy?'disabled':''}>${challengeBusy?'Saving…':'Vote for this dish'}</button>` : entry.uid===s.uid ? '<span class="challenge-own-entry">Your entry</span>' : voted && challengeVote.entryId===entry.id ? '<span class="challenge-voted-entry">Your vote ✓</span>' : ''}</div></div></article>`).join('') : `<div class="empty-illus challenge-empty">No entries yet — be the first to cook up a submission.</div>`}
+          ${ranked.length ? ranked.map((entry,i)=>`<article class="challenge-entry-card${voted && challengeVote.entryId===entry.id?' challenge-voted-card':''}"><div class="challenge-entry-photo"><img src="${esc(safePhotoSrc(entry.photoUrl || entry.photo))}" alt="${esc(entry.recipeName)}" loading="lazy"><span class="challenge-rank">#${i+1}</span>${voted && challengeVote.entryId===entry.id?'<span class="challenge-favorite-mark">Your pick ♥</span>':''}</div><div class="challenge-entry-info"><div class="challenge-entry-title">${esc(entry.recipeName)}</div><div class="challenge-entry-by">by ${esc(entry.username || 'Cook')}</div><div class="challenge-entry-actions"><span class="challenge-vote-count"><b>${Number(entry.votes)||0}</b> vote${Number(entry.votes)===1?'':'s'}</span>${!voted && entry.uid!==s.uid ? `<button type="button" class="btn btn-gold challenge-vote-btn" onclick="voteWeeklyChallenge('${jsStr(entry.id)}')" ${challengeBusy?'disabled':''}>${challengeBusy?'Counting your vote…':'♥  Vote for this dish'}</button>` : entry.uid===s.uid ? '<span class="challenge-own-entry">Your entry</span>' : voted && challengeVote.entryId===entry.id ? '<span class="challenge-voted-entry">Your vote ✓</span>' : ''}</div></div></article>`).join('') : `<div class="empty-illus challenge-empty">No entries yet — be the first to cook up a submission.</div>`}
         </div>
         ${past.length ? `<section class="challenge-past"><h3>Last week’s winners</h3><div class="challenge-winners">${past.slice(0,10).map((entry,i)=>`<div class="challenge-winner-row"><b>#${i+1} ${esc(entry.username||'Cook')}</b><span>${esc(entry.recipeName)}</span><strong>+${CHALLENGE_PLACEMENT_XP[i]} XP</strong></div>`).join('')}</div></section>` : ''}
       `}
@@ -2966,6 +2872,7 @@ async function voteWeeklyChallenge(entryId){
       awardXP(s, 50); s.challengeVoteBonusClaimed = true; syncUserProfile(currentUser, s);
     }
     challengeNotice = result.bonus ? 'Vote counted — you earned your one-time 50 XP bonus!' : 'Your vote has been counted.';
+    spawnConfettiGlobal();
   }catch(err){ challengeNotice = err.message || 'Could not submit your vote.'; }
   challengeBusy = false; render(false);
 }

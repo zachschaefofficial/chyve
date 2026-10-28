@@ -29,7 +29,7 @@
 <header class="nav" id="nav">
   <div class="nav-in glass dark">
     <a class="brand" href="#top" aria-label="Chyve home"><span data-mark="26"></span>Chyve</a>
-    <nav class="nav-links" aria-label="Sections"><a href="#features">Features</a><a href="#cook">Cook along</a><a href="#levels">Levels</a><a href="#plans">Plans</a></nav>
+    <nav class="nav-links" aria-label="Sections"><a href="#features">Features</a><a href="#cook">Cook along</a><a href="#levels">Levels</a></nav>
     <a class="btn btn-white btn-sm" href="#signup" data-go="signup">Start free</a>
   </div>
 </header>
@@ -158,13 +158,6 @@
   <div class="rail" aria-hidden="true"><div class="track" id="trackA"></div><div class="track rev" id="trackB"></div></div>
 </section>
 
-<section id="plans" style="padding-top:0">
-  <div class="wrap">
-    <div class="head-row rv"><div class="l"><span class="pillnote">Plans</span><h2>Free to start.<br>Upgrade when you want to.</h2></div></div>
-    <div class="plans" id="plansEl"></div>
-  </div>
-</section>
-
 <section style="padding-top:0">
   <div class="wrap">
     <div class="cta rv">
@@ -184,7 +177,7 @@
   <div class="wrap">
     <a class="brand" href="#top"><span data-mark="22"></span>Chyve</a>
     <span>Grow your cooking, one dish at a time.</span>
-    <nav aria-label="Footer"><a href="#features">Features</a><a href="#plans">Plans</a><a href="#login" data-go="login">Log in</a></nav>
+    <nav aria-label="Footer"><a href="#features">Features</a><a href="#levels">Levels</a><a href="#login" data-go="login">Log in</a></nav>
   </div>
 </footer>
 `;
@@ -349,14 +342,6 @@
     const card = id => `<div class="dc">${img(id)}<div class="cap glass dark"><b>${NAME[id]}</b><small>${lvOf(id)}</small></div></div>`;
     const A = ['grilled', 'carbonara', 'curry', 'salmon', 'pancakes', 'chili', 'risotto', 'tacos'], B = ['eggs', 'friedrice', 'steak', 'soup', 'padthai', 'chicken', 'bolognese', 'avocado'];
     $('#trackA').innerHTML = [...A, ...A].map(card).join(''); $('#trackB').innerHTML = [...B, ...B].map(card).join('');
-
-    /* ---------- plans ---------- */
-    const P = [
-      ['Seedling', 'Free', '', 'Everything you need to start climbing.', ['One suggested dish at a time', 'Full recipe path, Seedling to Sage', 'Streaks, XP and badges', 'Progress saved to your profile'], 'Start free', 'btn-line', false],
-      ['Sprout+', '$4.99', '/mo', 'For cooks who want to move at their own pace.', ['Everything in Seedling', 'Unlock any level immediately', 'Adjust ingredient yields on every recipe', 'Ad-free, always'], 'Get Sprout+', 'btn-white', true],
-      ['Vintner Pro', '$9.99', '/mo', 'For the ones cooking dinner parties on a Tuesday.', ['Everything in Sprout+', 'Upload and track your own recipes', 'Priority recipe requests', 'Early access to new dishes'], 'Get Vintner Pro', 'btn-line', false],
-    ];
-    $('#plansEl').innerHTML = P.map(([n, p, per, d, f, cta, bc, feat], i) => `<article class="plan rv ${feat ? 'feat' : ''}" style="--d:${i * .08}s"><div class="top">${n}${feat ? '<span class="pop">Most popular</span>' : ''}</div><div><div class="price">${p}<span>${per}</span></div><p class="d">${d}</p></div><ul>${f.map(x => `<li><i>${CHECK(11, 3.4)}</i>${x}</li>`).join('')}</ul><a class="btn ${bc}" href="#signup" data-go="signup">${cta}</a></article>`).join('');
 
     /* ---------- reveal + count-up ---------- */
     function count(el) { const to = +el.dataset.count, t0 = performance.now(), d = 1400; (function f(t) { const p = Math.min(1, (t - t0) / d), e = 1 - Math.pow(1 - p, 3); el.textContent = Math.round(to * e); if (p < 1 && el.isConnected) requestAnimationFrame(f); })(t0); }
