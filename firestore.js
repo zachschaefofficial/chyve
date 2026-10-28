@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment, updateDoc, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, getDocs, query, where, increment, updateDoc, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, sendSignInLinkToEmail, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 // TODO: Replace the following with your app's Firebase project configuration
 // See: https://support.google.com/firebase/answer/7015592
@@ -17,17 +17,84 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
+function usernameDocId(username) {
+  const value = String(username || "").trim();
+  if (!value || value.startsWith("__gv_")) throw new Error("A valid username is required for this profile.");
+  return encodeURIComponent(value);
+}
+
+async function resolveUserDocument(uid) {
+  const id = String(uid || "");
+  if (!id) throw new Error("A user id is required.");
+  const directRef = doc(db, "users", id);
+  if (id.startsWith("__gv_")) return { ref: directRef, snap: await getDoc(directRef) };
+
+  const directSnap = await getDoc(directRef);
+  if (directSnap.exists()) {
+    const data = directSnap.data() || {};
+    if (String(data.uid || id) === id) {
+      if (!data.username) return { ref: directRef, snap: directSnap };
+      const nameRef = doc(db, "users", usernameDocId(data.username));
+      if (nameRef.id === directRef.id) return { ref: directRef, snap: directSnap };
+      const nameSnap = await getDoc(nameRef);
+      if (nameSnap.exists() && nameSnap.data()?.uid !== id) throw new Error("That username is already linked to another account.");
+      await setDoc(nameRef, data, { merge: true });
+      try { await deleteDoc(directRef); } catch { console.warn("Profile copied to its username key; legacy UID document could not be removed."); }
+      return { ref: nameRef, snap: await getDoc(nameRef) };
+    }
+  }
+
+  const indexSnap = await getDoc(doc(db, "users", "__gv_index"));
+  if (indexSnap.exists()) {
+    const card = Object.entries(indexSnap.data() || {}).find(([key, value]) =>
+      key.startsWith("u_") && value && String(value.uid || "") === id
+    );
+    if (card) {
+      const username = card[1].username || card[0].slice(2);
+      const nameRef = doc(db, "users", usernameDocId(username));
+      const nameSnap = await getDoc(nameRef);
+      if (nameSnap.exists()) return { ref: nameRef, snap: nameSnap };
+    }
+  }
+
+  const matches = await getDocs(query(collection(db, "users"), where("uid", "==", id)));
+  const legacy = matches.docs.find(snap => snap.data()?.username);
+  if (legacy) {
+    const data = legacy.data() || {};
+    const nameRef = doc(db, "users", usernameDocId(data.username));
+    if (legacy.ref.id !== nameRef.id) {
+      const nameSnap = await getDoc(nameRef);
+      if (nameSnap.exists() && nameSnap.data()?.uid !== id) throw new Error("That username is already linked to another account.");
+      await setDoc(nameRef, data, { merge: true });
+      try { await deleteDoc(legacy.ref); } catch { console.warn("Profile copied to its username key; legacy UID document could not be removed."); }
+      return { ref: nameRef, snap: await getDoc(nameRef) };
+    }
+    return { ref: nameRef, snap: legacy };
+  }
+  return { ref: directRef, snap: directSnap };
+}
+
 async function createUser(email, password, data) {
+  const username = String(data && data.username || "").trim();
+  const profileRef = doc(db, "users", usernameDocId(username));
+  const [profileSnap, indexSnap] = await Promise.all([
+    getDoc(profileRef),
+    getDoc(doc(db, "users", "__gv_index"))
+  ]);
+  if (profileSnap.exists() || (indexSnap.exists() && indexSnap.data()?.["u_" + username])) {
+    throw new Error("That username is already taken.");
+  }
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
   const uid = user.uid;
   const newData = {
     ...data,
+    username,
     uid: uid,
     admin: false,
     banned: false
   };
-  await setDoc(doc(db, "users", uid), newData);
+  await setDoc(profileRef, newData);
   return { uid: uid, data: newData };
 }
 async function editUserData(uid, newData) {
@@ -36,15 +103,36 @@ async function editUserData(uid, newData) {
   delete payload.banned; // only banUser() / unbanUser() may change this
   delete payload.bannedAt;
   delete payload.bannedBy;
-  const ref = doc(db, "users", uid);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) { payload.admin = false; payload.banned = false; }
-  await setDoc(ref, payload, { merge: true });
+  if (String(uid).startsWith("__gv_")) {
+    const ref = doc(db, "users", uid);
+    await setDoc(ref, payload, { merge: true });
+    return { data: payload };
+  }
+  let resolved;
+  if (payload.username) {
+    const directRef = doc(db, "users", uid);
+    const directSnap = await getDoc(directRef);
+    resolved = directSnap.exists() ? await resolveUserDocument(uid) : {
+      ref: doc(db, "users", usernameDocId(payload.username)),
+      snap: await getDoc(doc(db, "users", usernameDocId(payload.username)))
+    };
+  } else {
+    resolved = await resolveUserDocument(uid);
+  }
+  const current = resolved.snap.exists() ? resolved.snap.data() || {} : {};
+  const username = payload.username || current.username;
+  const ref = username ? doc(db, "users", usernameDocId(username)) : resolved.ref;
+  const target = ref.id === resolved.ref.id ? resolved.snap : await getDoc(ref);
+  if (target.exists() && target.data()?.uid && target.data().uid !== uid) throw new Error("That username is already taken.");
+  if (!current.uid && !target.exists()) { payload.admin = false; payload.banned = false; }
+  await setDoc(ref, { ...current, ...payload, uid: current.uid || uid, username: username || current.username }, { merge: true });
+  if (resolved.snap.exists() && resolved.ref.id !== ref.id) {
+    try { await deleteDoc(resolved.ref); } catch { console.warn("Profile saved to its username key; legacy UID document could not be removed."); }
+  }
   return { data: payload };
 }
 async function getUserData(uid){
-  const docRef = doc(db, "users", uid);
-  const docSnap = await getDoc(docRef);
+  const { ref: docRef, snap: docSnap } = await resolveUserDocument(uid);
   if (!docSnap.exists()) return { data: undefined };
   let data = docSnap.data() || {};
   if (typeof data.admin !== "boolean") {
@@ -55,9 +143,14 @@ async function getUserData(uid){
 }
 function watchUserXP(uid, callback) {
   if (!uid || typeof callback !== "function") return () => {};
-  return onSnapshot(doc(db, "users", uid), snap => {
-    if (snap.exists()) callback(snap.data() || {});
-  });
+  let stopped = false;
+  let unsubscribe = () => {};
+  resolveUserDocument(uid).then(({ ref }) => {
+    if (!stopped) unsubscribe = onSnapshot(ref, snap => {
+      if (snap.exists()) callback(snap.data() || {});
+    });
+  }).catch(error => console.warn("Could not watch user XP:", error));
+  return () => { stopped = true; unsubscribe(); };
 }
 async function createRecipe(data) {
   const id = (typeof crypto !== "undefined" && crypto.randomUUID)
@@ -91,7 +184,7 @@ async function editRecipeData(id, newData) {
   if (newData && newData.approved === false && newData.status === "taken_down") {
     const user = auth.currentUser;
     if (!user) throw new Error("Sign in as an admin to take down recipes.");
-    const userSnap = await getDoc(doc(db, "users", user.uid));
+    const { snap: userSnap } = await resolveUserDocument(user.uid);
     if (!userSnap.exists() || userSnap.data().admin !== true) {
       throw new Error("Only admins can take down recipes.");
     }
@@ -110,7 +203,7 @@ async function addRecipeComment({ recipeId, recipeName, text, attachPhoto }) {
   const cleanText = String(text || "").trim();
   if (!cleanText) throw new Error("Write a comment first.");
   if (cleanText.length > 1000) throw new Error("Comments must be 1,000 characters or fewer.");
-  const userSnap = await getDoc(doc(db, "users", user.uid));
+  const { snap: userSnap } = await resolveUserDocument(user.uid);
   if (!userSnap.exists() || userSnap.data().banned === true) throw new Error("Your account cannot comment.");
   const id = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
   const recipeSnap = await getDoc(doc(db, "recipes", String(recipeId)));
@@ -227,7 +320,7 @@ async function uploadImageToCloudinary(image, folder = "recipes") {
 async function assertAdmin(actingUid) {
   const uid = (auth.currentUser && auth.currentUser.uid) || actingUid;
   if (!uid) throw new Error("Sign in as an admin first.");
-  const snap = await getDoc(doc(db, "users", uid));
+  const { snap } = await resolveUserDocument(uid);
   if (!snap.exists() || snap.data().admin !== true) throw new Error("Admins only.");
   return uid;
 }
@@ -340,7 +433,7 @@ async function voteChallengeEntry({ challengeId, entryId, weekId }) {
   if (String(challengeId) !== String(weekId) || String(weekId) !== currentWeekKey()) throw new Error("Voting for this challenge has closed.");
   const voteRef = doc(db, "challengeVotes", safeKey(challengeId) + "_" + safeKey(user.uid));
   const entryRef = doc(db, "challengeEntries", String(entryId));
-  const userRef = doc(db, "users", user.uid);
+  const { ref: userRef } = await resolveUserDocument(user.uid);
   return runTransaction(db, async tx => {
     const [voteSnap, entrySnap, userSnap] = await Promise.all([tx.get(voteRef), tx.get(entryRef), tx.get(userRef)]);
     if (voteSnap.exists()) throw new Error("You already voted in this challenge.");
@@ -368,12 +461,12 @@ async function awardChallengePlacement({ entryId, xp, weekId }) {
   const place = ranked.findIndex(entry => entry.id === String(entryId)) + 1;
   const payouts = [500, 400, 300, 250, 200, 175, 150, 125, 100, 75];
   if (place < 1 || place > 10 || Number(xp) !== payouts[place - 1]) return { awarded: false };
+  const { ref: userRef } = await resolveUserDocument(initialEntry.uid);
   return runTransaction(db, async tx => {
     const entrySnap = await tx.get(entryRef);
     if (!entrySnap.exists()) return { awarded: false };
     const entry = entrySnap.data() || {};
     if (entry.placementAwarded || !entry.uid || (Number(entry.votes) || 0) !== (Number(initialEntry.votes) || 0)) return { awarded: false };
-    const userRef = doc(db, "users", entry.uid);
     const userSnap = await tx.get(userRef);
     if (!userSnap.exists()) return { awarded: false };
     const profile = userSnap.data() || {};
@@ -392,7 +485,7 @@ async function awardRecipeCompletionXP({ recipeId, completerUid, awardWeekId }) 
   const authorUid = recipe.authorUid;
   if (!authorUid) return false;
   const awardRef = doc(db, "recipeCompletionAwards", safeKey(recipeId) + "_" + safeKey(completerUid));
-  const userRef = doc(db, "users", authorUid);
+  const { ref: userRef } = await resolveUserDocument(authorUid);
   return runTransaction(db, async tx => {
     const [awardSnap, userSnap] = await Promise.all([tx.get(awardRef), tx.get(userRef)]);
     if (awardSnap.exists() || !userSnap.exists()) return { awarded: false };
@@ -405,7 +498,7 @@ async function awardRecipeCompletionXP({ recipeId, completerUid, awardWeekId }) 
   });
 }
 // A banned user is hidden everywhere (leaderboards, circles, recipes, comments, profiles).
-// The users/{uid} flag is the source of truth; we also mirror it onto the public index card so
+// The username-keyed user document is the source of truth; we also mirror it onto the public index card so
 // every client sees it without having to read every user doc. Nothing is deleted, so unbanning
 // restores the user exactly as they were (circle memberships, recipes, comments, XP).
 async function setIndexCardBanned(username, banned) {
@@ -418,8 +511,7 @@ async function setIndexCardBanned(username, banned) {
 }
 async function banUser(targetUid, actingUid) {
   await assertAdmin(actingUid);
-  const ref = doc(db, "users", targetUid);
-  const snap = await getDoc(ref);
+  const { ref, snap } = await resolveUserDocument(targetUid);
   if (!snap.exists()) throw new Error("User not found.");
   if (snap.data().admin === true) throw new Error("Admins can't be banned.");
   await updateDoc(ref, { banned: true, bannedAt: Date.now(), bannedBy: actingUid });
@@ -428,8 +520,7 @@ async function banUser(targetUid, actingUid) {
 }
 async function unbanUser(targetUid, actingUid) {
   await assertAdmin(actingUid);
-  const ref = doc(db, "users", targetUid);
-  const snap = await getDoc(ref);
+  const { ref, snap } = await resolveUserDocument(targetUid);
   await updateDoc(ref, { banned: false });
   await setIndexCardBanned(snap.exists() ? snap.data().username : "", false);
   return { banned: false };
@@ -440,7 +531,7 @@ function isBannedData(data) {
 }
 async function isUserBanned(uid) {
   if (!uid) return false;
-  const snap = await getDoc(doc(db, "users", uid));
+  const { snap } = await resolveUserDocument(uid);
   return snap.exists() && isBannedData(snap.data());
 }
 async function signOutFirebase() {

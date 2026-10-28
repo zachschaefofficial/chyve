@@ -184,9 +184,11 @@ let xpVisualValue = null;
 let xpVisualQueue = [];
 let xpVisualRunning = false;
 let lastClickPoint = { x: Math.round(window.innerWidth * 0.5), y: Math.round(window.innerHeight * 0.5) };
+let lastClickAt = 0;
 
 document.addEventListener('pointerdown', event => {
   lastClickPoint = { x: event.clientX, y: event.clientY };
+  lastClickAt = Date.now();
 }, true);
 
 const WEEKLY_CHALLENGES = [
@@ -353,12 +355,10 @@ function animateXPGain(s, amount, baseXP){
   if(xpVisualUid !== uid){ xpVisualUid = uid; xpVisualValue = Number(baseXP) || 0; xpVisualQueue = []; }
   if(screen !== 'app') { xpVisualValue = Number(s.xp) || 0; return; }
   const points = Math.max(1, Math.round(Number(amount) || 0));
-  const count = Math.min(10, Math.max(3, Math.ceil(points / 30)));
-  const start = { ...lastClickPoint };
-  for(let i=0;i<count;i++){
-    const earned = Math.floor(points / count) + (i < points % count ? 1 : 0);
-    xpVisualQueue.push({ uid, earned, start });
-  }
+  const start = Date.now() - lastClickAt < 2500
+    ? { ...lastClickPoint }
+    : { x: Math.round(window.innerWidth / 2), y: Math.round(window.innerHeight * .58) };
+  xpVisualQueue.push({ uid, earned: points, start });
   drainXPVisualQueue();
 }
 async function drainXPVisualQueue(){
@@ -376,23 +376,32 @@ async function drainXPVisualQueue(){
     if(!target){ xpVisualValue = Number(live.xp) || xpVisualValue; continue; }
     const rect = target.getBoundingClientRect();
     const end = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    const particle = document.createElement('span');
-    particle.className = 'xp-particle';
-    particle.textContent = '✦';
-    particle.style.left = item.start.x + 'px';
-    particle.style.top = item.start.y + 'px';
-    document.body.appendChild(particle);
-    await new Promise(resolve => {
+    const particleCount = Math.min(item.earned, 18);
+    const particles = Array.from({ length: particleCount }, (_, index) => {
+      const particle = document.createElement('span');
+      particle.className = 'xp-particle';
+      particle.textContent = '+1 XP';
+      particle.style.left = item.start.x + 'px';
+      particle.style.top = item.start.y + 'px';
+      document.body.appendChild(particle);
+      return { particle, index };
+    });
+    await Promise.all(particles.map(({ particle, index }) => new Promise(resolve => {
+      const angle = (Math.PI * 2 * index / particleCount) + Math.random() * .24;
+      const burstDistance = 76 + Math.random() * 92;
+      const burstX = Math.cos(angle) * burstDistance;
+      const burstY = Math.sin(angle) * burstDistance;
       const dx = end.x - item.start.x, dy = end.y - item.start.y;
       const animation = particle.animate([
-        { transform: 'translate(0,0) scale(.65)', opacity: .1 },
-        { transform: `translate(${dx*.52}px,${Math.min(-36,dy*.25)}px) scale(1.25)`, opacity: 1, offset: .42 },
-        { transform: `translate(${dx}px,${dy}px) scale(.15)`, opacity: .15 }
-      ], { duration: 520, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'forwards' });
+        { transform: 'translate(0,0) scale(.18)', opacity: 0 },
+        { transform: `translate(${burstX}px,${burstY}px) scale(1.12)`, opacity: 1, offset: .24 },
+        { transform: `translate(${burstX}px,${burstY}px) scale(1)`, opacity: 1, offset: .4 },
+        { transform: `translate(${dx}px,${dy}px) scale(.16)`, opacity: .08 }
+      ], { duration: 1250 + Math.random() * 250, delay: Math.random() * 100, easing: 'cubic-bezier(.18,.75,.22,1)', fill: 'forwards' });
       animation.onfinish = resolve;
       animation.oncancel = resolve;
-    });
-    particle.remove();
+    })));
+    particles.forEach(({ particle }) => particle.remove());
     const current = users[currentUser];
     if(current && current.uid === item.uid && screen === 'app'){
       xpVisualValue = (Number(xpVisualValue) || 0) + item.earned;
@@ -411,7 +420,7 @@ async function drainXPVisualQueue(){
         setTimeout(() => label.remove(), 850);
       });
     }
-    await new Promise(resolve => setTimeout(resolve, 90));
+    await new Promise(resolve => setTimeout(resolve, 120));
   }
   xpVisualRunning = false;
 }
@@ -1378,6 +1387,7 @@ function requireSignupCode(username, email, password, token){
       const profile = { username, displayName: username, email, xp: 0, weeklyXp: 0, weekId, streak: 0, completed: [], completionDates: [], badges: [], checks: {} };
       const created = await window.createUser(email, password, profile);
       users[username] = { ...profile, uid: created.uid, password };
+      await publishPublicCard(users[username]);
       currentUser = username;
       screen = 'app'; appView = 'path'; activeDishId = null; dishStage = 'overview';
       window.__authBusy = false; window.__codeStep = null;
@@ -1717,7 +1727,7 @@ async function enterWithGoogleUser(gUser){
   currentUser = username;
   ensureWeek(users[username]);
   persistLocal();
-  publishPublicCard(users[username]);
+  await publishPublicCard(users[username]);
   window.__authBusy = false;
   window.__authError = '';
   screen = 'app';
