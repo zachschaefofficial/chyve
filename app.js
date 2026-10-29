@@ -865,21 +865,44 @@ function navSnapshot(){
     profileOrigin: profileOrigin
   };
 }
+const ROUTE_VIEWS = new Set(['path','browse','learn','challenges','leaderboard','groups','upload','profile','admin']);
+function routeForSnapshot(snap){
+  if(snap.screen === 'login') return '/login';
+  if(snap.screen === 'signup') return '/signup';
+  if(snap.screen !== 'app') return '/';
+  const view = ROUTE_VIEWS.has(snap.appView) ? snap.appView : 'path';
+  if(view === 'profile') return '/profile' + (snap.viewingUser ? '/' + encodeURIComponent(snap.viewingUser) : '');
+  return '/' + view;
+}
+function snapshotFromLocation(){
+  const parts = location.pathname.split('/').filter(Boolean).map(part => {
+    try { return decodeURIComponent(part); } catch(e) { return part; }
+  });
+  const route = (parts[0] || '').toLowerCase();
+  if(!route) return { chyve:1, screen:'landing', appView:'path' };
+  if(route === 'login' || route === 'signup') return { chyve:1, screen:route, appView:'path' };
+  if(ROUTE_VIEWS.has(route)) return {
+    chyve:1, screen:'app', appView:route,
+    viewingUser: route === 'profile' && parts[1] ? parts[1] : null
+  };
+  return { chyve:1, screen:'landing', appView:'path' };
+}
 function syncHistory(){
   if(restoringFromHistory || !window.history || !history.pushState) return;
   try{
     const snap = navSnapshot();
-    if(!historyStarted){ history.replaceState(snap, ''); historyStarted = true; return; }
+    const route = routeForSnapshot(snap);
+    if(!historyStarted){ history.replaceState(snap, '', route); historyStarted = true; return; }
     // The photo-check and "recipe completed" pages share the cooking page's history entry.
     if(screen === 'app' && TRANSIENT_STAGES.indexOf(dishStage) > -1) return;
     const prev = history.state;
     if(prev && JSON.stringify(prev) === JSON.stringify(snap)) return;
     // Logging in replaces the login / sign-up entry instead of stacking the app on top of it.
     if(prev && screen === 'app' && (prev.screen === 'login' || prev.screen === 'signup')){
-      history.replaceState(snap, '');
+      history.replaceState(snap, '', route);
       return;
     }
-    history.pushState(snap, '');
+    history.pushState(snap, '', route);
   }catch(e){}
 }
 function applyNavSnapshot(st){
@@ -4003,7 +4026,22 @@ async function adminUnban(uid){
     screen = 'app';
     ensureWeek(users[session]);
   }
+  const initialRoute = snapshotFromLocation();
+  screen = initialRoute.screen;
+  appView = initialRoute.appView;
+  viewingUser = initialRoute.viewingUser || null;
+  if(screen === 'landing' && currentUser){ screen = 'app'; appView = 'path'; }
+  if(screen === 'app' && !currentUser) screen = 'login';
   render();
+  if(screen === 'app'){
+    if(appView === 'learn' && currentUser) users[currentUser].visitedLearn = true;
+    else if(appView === 'browse') loadApprovedRecipes();
+    else if(appView === 'challenges') loadChallengeData();
+    else if(appView === 'leaderboard' || appView === 'groups') loadLeaderboard();
+    else if(appView === 'profile' && viewingUser) openProfile(viewingUser);
+    else if(appView === 'admin' && currentUserIsAdmin()) adminLoad();
+    else if(appView === 'admin') switchAppView('path');
+  }
   refreshSocialIndex().then(() => {
     if(currentUser && users[currentUser] && users[currentUser].uid){
       return window.getUserData(users[currentUser].uid).then(res => {
