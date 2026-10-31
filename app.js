@@ -830,17 +830,57 @@ function leaderboardEntries(mode){
 function parseIngredientsRaw(dish){
   const lines = String(dish && dish.ingredients || '').split(/\n+/).map(s=>s.trim()).filter(Boolean);
   if(lines.length>=2 && /^yield:?$/i.test(lines[0])){
-    return { yieldLabel: lines[1], list: lines.slice(2) };
+    const sections = parseRecipeSections(lines.slice(2).join('\n'));
+    return { yieldLabel: lines[1], sections, list: sections.flatMap(section=>section.items) };
   }
-  return { yieldLabel: null, list: lines };
+  const sections = parseRecipeSections(lines.join('\n'));
+  return { yieldLabel: null, sections, list: sections.flatMap(section=>section.items) };
 }
 function ingredientsList(dish){ return parseIngredientsRaw(dish).list; }
-function stepsList(dish){ 
-  return String(dish && dish.steps || '')
-  .split(/\n+/)
-  .map(s => s.trim())
-  .filter(Boolean)
-  .filter(s => !/^step\s+\d+/i.test(s));
+function recipeSectionTitle(line){
+  const text = String(line || '').trim().replace(/^#{1,6}\s*/, '').replace(/^\*\*(.+)\*\*$/, '$1').trim();
+  if(!text || text.length > 64) return null;
+  const forMatch = text.match(/^for\s+(?:the\s+)?(.+?)[,;:]?$/i);
+  const forWords = forMatch ? forMatch[1].trim().split(/\s+/).length : 0;
+  const forTailHasInternalPunctuation = forMatch && /[,;:]/.test(forMatch[1]);
+  if(forMatch && forWords <= 5 && (/[,:;]$/.test(text) || (forWords <= 4 && !forTailHasInternalPunctuation))) return forMatch[1].trim().replace(/[,;:]$/, '');
+  const title = text.match(/^([\p{L}\p{N}][\p{L}\p{N}\s'’&()/-]{0,56})[:,]$/u);
+  if(!title || title[1].trim().split(/\s+/).length > 5) return null;
+  if(/^(add|bake|bring|chop|combine|cook|cut|drain|fold|garnish|heat|let|mix|place|pour|preheat|remove|return|season|serve|set|slice|spread|stir|toss|transfer|use|whisk)\b/i.test(title[1].trim())) return null;
+  return title[1].trim();
+}
+function parseRecipeSections(text, filterItem){
+  const sections = [];
+  let current = { title: null, items: [] };
+  String(text || '').split(/\n+/).forEach(rawLine=>{
+    const line = rawLine.trim();
+    if(!line) return;
+    const title = recipeSectionTitle(line);
+    if(title){
+      if(current.items.length || current.title) sections.push(current);
+      current = { title, items: [] };
+      return;
+    }
+    if(!/^step\s+\d+/i.test(line) && (!filterItem || filterItem(line))) current.items.push(line);
+  });
+  if(current.items.length || current.title) sections.push(current);
+  return sections;
+}
+function ingredientSections(dish){ return parseIngredientsRaw(dish).sections; }
+function stepsSections(dish){ return parseRecipeSections(dish && dish.steps); }
+function stepsList(dish){
+  return stepsSections(dish).flatMap(section=>section.items);
+}
+function renderChecklistSections(dishId, field, sections, checks, readonly){
+  let index = 0;
+  return sections.map(section=>{
+    const heading = section.title ? `<li class="check-section-heading">${esc(section.title)}</li>` : '';
+    const items = section.items.map(text=>{
+      const itemIndex = index++;
+      return checklistItem(dishId, field, itemIndex, esc(text), checks[itemIndex], readonly);
+    }).join('');
+    return heading + items;
+  }).join('');
 }
  
 /* =========================================================
@@ -2319,8 +2359,13 @@ function checklistItem(dishId, field, idx, text, checked, readonly){
 }
 function getChecks(s, dish){
   if(!s.checks) s.checks = {};
-  if(!s.checks[dish.id]) s.checks[dish.id] = { steps: stepsList(dish).map(()=>false), ingredients: ingredientsList(dish).map(()=>false) };
-  return s.checks[dish.id];
+  const saved = s.checks[dish.id] || {};
+  const steps = stepsList(dish);
+  const ingredients = ingredientsList(dish);
+  if(!Array.isArray(saved.steps) || saved.steps.length !== steps.length) saved.steps = steps.map(()=>false);
+  if(!Array.isArray(saved.ingredients) || saved.ingredients.length !== ingredients.length) saved.ingredients = ingredients.map(()=>false);
+  s.checks[dish.id] = saved;
+  return saved;
 }
 function toggleCheck(dishId, field, idx){
   const s = users[currentUser];
@@ -2354,11 +2399,18 @@ function renderYieldControl(dish, currentYield){
 function renderCookingPage(dish, s){
   const done = dishCompleted(s, dish.id);
   const rawIngredients = ingredientsList(dish);
+  const ingredientGroups = ingredientSections(dish);
   const steps = stepsList(dish);
+  const stepGroups = stepsSections(dish);
   const yieldInfo = getYieldInfo(dish);
   const currentYield = yieldInfo ? (activeYieldAmount || yieldInfo.amount) : null;
   const factor = (yieldInfo && currentYield) ? (currentYield / yieldInfo.amount) : 1;
   const ingredients = yieldInfo ? rawIngredients.map(t => scaleIngredientText(t, factor)) : rawIngredients;
+  let ingredientIndex = 0;
+  const scaledIngredientGroups = ingredientGroups.map(section=>({
+    title: section.title,
+    items: section.items.map(()=>ingredients[ingredientIndex++])
+  }));
   const c = done ? {steps: steps.map(()=>true), ingredients: rawIngredients.map(()=>true)} : getChecks(s, dish);
   const checkedSteps = c.steps.filter(Boolean).length;
   const checkedIngredients = c.ingredients.filter(Boolean).length;
@@ -2382,13 +2434,13 @@ function renderCookingPage(dish, s){
         ${yieldInfo ? renderYieldControl(dish, currentYield) : ''}
         <h3>Ingredients <span style="color:var(--text-dim);font-weight:400;font-size:0.8rem;">(${checkedIngredients}/${ingredients.length} checked)</span></h3>
         <ul class="check-list scroll-list">
-          ${ingredients.map((ing,i)=>checklistItem(dish.id,'ingredients',i,ing,c.ingredients[i],done)).join('')}
+          ${renderChecklistSections(dish.id,'ingredients',scaledIngredientGroups,c.ingredients,done)}
         </ul>
       </div>
       <div>
         <h3>Instructions</h3>
         <ul class="check-list scroll-list">
-          ${steps.map((st,i)=>checklistItem(dish.id,'steps',i,st,c.steps[i],done)).join('')}
+          ${renderChecklistSections(dish.id,'steps',stepGroups,c.steps,done)}
         </ul>
       </div>
       ${renderMacroCard(dish, factor, yieldInfo ? formatYieldLabel(dish, currentYield) : '')}

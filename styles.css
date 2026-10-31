@@ -306,6 +306,8 @@ footer .brand{font-size:1rem;}
 .complete-btn-row{grid-column:1 / -1;display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:4px;flex-wrap:wrap;}
 .cooked-chip{display:flex;align-items:center;gap:8px;color:var(--accent-deep);font-weight:600;font-size:0.95rem;}
 .check-list{list-style:none;padding:0;margin:0;}
+.check-section-heading{padding:13px 8px 5px;margin:5px -8px 2px;border-top:1px solid var(--line);color:var(--accent-deep);font-size:.76rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;}
+.check-section-heading:first-child{padding-top:7px;margin-top:0;border-top:0;}
 .scroll-list{max-height:360px;overflow-y:auto;padding-right:10px;margin-right:-10px;}
 .scroll-list::-webkit-scrollbar{width:8px;}
 .scroll-list::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:8px;}
