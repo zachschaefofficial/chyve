@@ -153,9 +153,19 @@ function watchUserXP(uid, callback) {
   return () => { stopped = true; unsubscribe(); };
 }
 async function createRecipe(data) {
-  const id = (typeof crypto !== "undefined" && crypto.randomUUID)
+  const unique = (typeof crypto !== "undefined" && crypto.randomUUID)
     ? crypto.randomUUID()
     : "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  const nameSlug = String(data && data.name || "recipe")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 72) || "recipe";
+  // Keep Firestore document IDs readable for moderation, while the suffix
+  // prevents two recipes with the same title from replacing one another.
+  const id = nameSlug + "-" + unique.replace(/[^A-Za-z0-9]/g, "").slice(-8);
   const newData = {
     ...data,
     id: id,

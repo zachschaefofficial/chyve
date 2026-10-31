@@ -53,6 +53,46 @@ const BADGES = [
   {id:'post1', name:'Recipe Contributor', desc:'Submit your first recipe for review', check:s=>(s.recipesPosted||0)>=1},
   {id:'post5', name:'Community Cook', desc:'Submit 5 recipes for review', check:s=>(s.recipesPosted||0)>=5},
   {id:'post15', name:'Recipe Powerhouse', desc:'Submit 15 recipes for review', check:s=>(s.recipesPosted||0)>=15},
+  {id:'community1', name:'First Bite Together', icon:'🤝', desc:'Cook your first community recipe', check:s=>(s.communityCompletions||0)>=1},
+  {id:'community5', name:'A Seat at Every Table', icon:'🍽️', desc:'Cook 5 community recipes', check:s=>(s.communityCompletions||0)>=5},
+  {id:'scout5', name:'Recipe Scout', icon:'🔎', desc:'Explore 5 different community recipes', check:s=>(s.communityViewedRecipes||[]).length>=5},
+  {id:'scout20', name:'Curious Palate', icon:'🧭', desc:'Explore 20 different community recipes', check:s=>(s.communityViewedRecipes||[]).length>=20},
+  {id:'vote1', name:'First Cheer', icon:'👏', desc:'Cast your first challenge vote', check:s=>(s.challengeVotesCount||0)>=1},
+  {id:'vote5', name:'Kitchen Supporter', icon:'💚', desc:'Vote in 5 weekly challenges', check:s=>(s.challengeVotesCount||0)>=5},
+  {id:'entry1', name:'Into the Ring', icon:'🏁', desc:'Enter your first weekly challenge', check:s=>(s.challengeEntriesCount||0)>=1},
+  {id:'entry3', name:'Challenge Regular', icon:'🏆', desc:'Enter 3 weekly challenges', check:s=>(s.challengeEntriesCount||0)>=3},
+  {id:'crowd5', name:'Crowd Favorite', icon:'💫', desc:'Earn 5 votes on a challenge entry', check:s=>(s.challengeEntryVotes||0)>=5},
+  {id:'crowd10', name:'People’s Choice', icon:'🌟', desc:'Earn 10 votes on a challenge entry', check:s=>(s.challengeEntryVotes||0)>=10},
+];
+
+const MASTERY_STYLES = [
+  {id:'searing', name:'Searing & sautéing', icon:'🔥', test:t=>/\b(sear(?:ed|ing)?|saute(?:ed|ing)?|pan[- ]?fry|brown(?:ed|ing) in a pan)\b/.test(t)},
+  {id:'roasting', name:'Roasting', icon:'🥘', test:t=>/\b(roast(?:ed|ing)?|sheet pan)\b/.test(t)},
+  {id:'baking', name:'Baking', icon:'🥖', test:t=>/\b(bak(?:e|ed|ing)|bread|cake|pastry)\b/.test(t)},
+  {id:'stirfry', name:'Stir-frying', icon:'🥢', test:t=>/\b(stir[- ]?fry|wok)\b/.test(t)},
+  {id:'simmering', name:'Slow simmering', icon:'🍲', test:t=>/\b(simmer(?:ed|ing)?|brais(?:e|ed|ing)|stew(?:ed|ing)?)\b/.test(t)},
+  {id:'grilling', name:'Grilling', icon:'🍢', test:t=>/\b(grill(?:ed|ing)?|barbecue|bbq)\b/.test(t)}
+];
+const MASTERY_STEPS = [
+  {count:1, title:'Apprentice'},
+  {count:3, title:'Confident'},
+  {count:5, title:'Master'}
+];
+const COSMETICS = [
+  {id:'theme-garden', type:'theme', name:'Garden Light', icon:'🌿', cost:0, desc:'A fresh green kitchen.', theme:{mode:'light',accent:'green'}},
+  {id:'theme-midnight', type:'theme', name:'Midnight Kitchen', icon:'🌙', cost:0, desc:'A calm dark theme for late-night cooks.', theme:{mode:'dark',accent:'green'}},
+  {id:'theme-citrus', type:'theme', name:'Citrus Grove', icon:'🍊', cost:60, desc:'Warm light with a bright orange accent.', theme:{mode:'light',accent:'orange'}},
+  {id:'theme-bluehour', type:'theme', name:'Blue Hour', icon:'🌌', cost:90, desc:'Deep dark mode with a cool blue accent.', theme:{mode:'dark',accent:'blue'}},
+  {id:'theme-berry', type:'theme', name:'Berry Season', icon:'🫐', cost:90, desc:'A rich violet colorway.', theme:{mode:'dark',accent:'violet'}},
+  {id:'outline-chive', type:'outline', name:'Chive Stitch', icon:'🪴', cost:0, desc:'A simple green profile outline.'},
+  {id:'outline-sprout', type:'outline', name:'Fresh Sprout', icon:'🌱', cost:0, desc:'A soft mint ring around your profile photo.'},
+  {id:'outline-lavender', type:'outline', name:'Lavender Edge', icon:'🪻', cost:0, desc:'A gentle violet profile outline.'},
+  {id:'outline-honey', type:'outline', name:'Honey Gold', icon:'✨', cost:50, desc:'A golden ring for your profile photo.'},
+  {id:'outline-berry', type:'outline', name:'Berry Glaze', icon:'🍇', cost:70, desc:'A bright berry-colored outline.'},
+  {id:'effect-none', type:'effect', name:'No effect', icon:'○', cost:0, desc:'Keep your profile clean and simple.'},
+  {id:'effect-petal', type:'effect', name:'Petal Pop', icon:'🌸', cost:0, desc:'A tiny floral accent on your profile photo.'},
+  {id:'effect-glow', type:'effect', name:'Soft Glow', icon:'💡', cost:100, desc:'A warm halo around your profile photo.'},
+  {id:'effect-sparkle', type:'effect', name:'Starlight', icon:'✦', cost:140, desc:'A subtle sparkle for your profile.'}
 ];
  
 /* =========================================================
@@ -62,6 +102,8 @@ const users = {};      // { username: { username, email, password, xp, streak, c
 let currentUser = null;
 let screen = 'landing';     // landing | login | signup | app
 let appView = 'path';       // browse | path | profile | learn | leaderboard
+let rewardNotifications = [];
+let activeThemeUser = '';
 let avatarOpen = false;
 let activeDishId = null;    // dish currently open in the recipe flow
 let dishStage = 'overview'; // overview | cooking | checking | denied | completed
@@ -192,6 +234,7 @@ const WEEKLY_CHALLENGES = [
   'Your best Sunday dinner'
 ];
 const CHALLENGE_PLACEMENT_XP = [500, 400, 300, 250, 200, 175, 150, 125, 100, 75];
+const CHALLENGE_PLACEMENT_COINS = [100, 80, 60, 45, 35, 30, 25, 20, 15, 10];
  
 function levelIndex(xp){
   let idx = 0;
@@ -290,6 +333,87 @@ function awardXP(s, amount){
   s.weeklyXp = (Number(s.weeklyXp) || 0) + xp;
   animateXPGain(s, xp, previousXP);
 }
+function ensureProgressState(s){
+  if(!s) return;
+  s.completed = Array.isArray(s.completed) ? s.completed : [];
+  s.completionDates = Array.isArray(s.completionDates) ? s.completionDates : [];
+  s.coins = Math.max(0, Math.floor(Number(s.coins) || 0));
+  s.badges = Array.isArray(s.badges) ? s.badges : [];
+  s.mastery = s.mastery && typeof s.mastery === 'object' ? s.mastery : {};
+  s.masteryMilestones = s.masteryMilestones && typeof s.masteryMilestones === 'object' ? s.masteryMilestones : {};
+  s.communityViewedRecipes = Array.isArray(s.communityViewedRecipes) ? s.communityViewedRecipes : [];
+  s.communityCompletions = Math.max(0, Number(s.communityCompletions) || 0);
+  s.challengeVotesCount = Math.max(0, Number(s.challengeVotesCount) || 0);
+  s.challengeEntriesCount = Math.max(0, Number(s.challengeEntriesCount) || 0);
+  s.challengeEntryVotes = Math.max(0, Number(s.challengeEntryVotes) || 0);
+  s.ownedCosmetics = Array.isArray(s.ownedCosmetics) ? s.ownedCosmetics : [];
+  ['theme-garden','theme-midnight','outline-chive','outline-sprout','outline-lavender','effect-none','effect-petal'].forEach(id => {
+    if(!s.ownedCosmetics.includes(id)) s.ownedCosmetics.push(id);
+  });
+  s.equippedCosmetics = s.equippedCosmetics && typeof s.equippedCosmetics === 'object' ? s.equippedCosmetics : {};
+  if(!s.equippedCosmetics.theme || !s.ownedCosmetics.includes(s.equippedCosmetics.theme)) s.equippedCosmetics.theme = 'theme-garden';
+  if(!s.equippedCosmetics.outline || !s.ownedCosmetics.includes(s.equippedCosmetics.outline)) s.equippedCosmetics.outline = 'outline-chive';
+  if(!s.equippedCosmetics.effect || !s.ownedCosmetics.includes(s.equippedCosmetics.effect)) s.equippedCosmetics.effect = 'effect-none';
+}
+function applyUserTheme(s){
+  if(!s) return;
+  ensureProgressState(s);
+  if(activeThemeUser === s.username && window.Theme) return;
+  const selected = COSMETICS.find(item => item.id === s.equippedCosmetics.theme && item.type === 'theme');
+  if(window.Theme) window.Theme.apply(selected ? selected.theme : {mode:'light',accent:'green'});
+  activeThemeUser = s.username || currentUser || '';
+}
+function awardCoins(s, amount){
+  const coins = Math.max(0, Math.floor(Number(amount) || 0));
+  if(!s || !coins) return 0;
+  ensureProgressState(s);
+  s.coins += coins;
+  return coins;
+}
+function rewardNotification(kind, name, description, icon){
+  return {kind, name, description, icon:icon || (kind === 'badge' ? '🏅' : '✨')};
+}
+function queueRewardNotifications(items){
+  if(!Array.isArray(items) || !items.length) return;
+  const first = rewardNotifications.length === 0;
+  rewardNotifications = rewardNotifications.concat(items);
+  if(first) spawnConfettiGlobal();
+}
+function awardEligibleBadges(s){
+  if(!s) return [];
+  ensureProgressState(s);
+  const earned = BADGES.filter(b => !s.badges.includes(b.id) && b.check(s));
+  earned.forEach(b => s.badges.push(b.id));
+  queueRewardNotifications(earned.map(b => rewardNotification('badge', b.name, b.desc, b.icon || '🏅')));
+  return earned;
+}
+function recipeTextForMastery(dish){
+  return [dish && dish.name, dish && dish.desc, dish && dish.ingredients, dish && dish.steps, dish && dish.instructions].filter(Boolean).join(' ').toLowerCase();
+}
+function detectToolsForDish(dish){
+  const text = recipeTextForMastery(dish);
+  return KITCHEN_TOOLS.filter(tool => tool.keywords.some(keyword => text.includes(String(keyword).toLowerCase())));
+}
+function awardRecipeMastery(s, dish){
+  if(!s || !dish) return [];
+  ensureProgressState(s);
+  const toolTargets = detectToolsForDish(dish).map(tool => ({id:'tool-'+tool.id,name:tool.name,icon:'🛠️'}));
+  const text = recipeTextForMastery(dish);
+  const styleTargets = MASTERY_STYLES.filter(style => style.test(text)).map(style => ({id:'style-'+style.id,name:style.name,icon:style.icon}));
+  const earned = [];
+  toolTargets.concat(styleTargets).forEach(target => {
+    const count = Number(s.mastery[target.id] || 0) + 1;
+    s.mastery[target.id] = count;
+    const milestone = MASTERY_STEPS.find(step => step.count === count);
+    const key = target.id + ':' + count;
+    if(milestone && !s.masteryMilestones[key]){
+      s.masteryMilestones[key] = true;
+      earned.push(rewardNotification('mastery', target.name + ' · ' + milestone.title, count + ' recipes completed with this tool or technique.', target.icon));
+    }
+  });
+  queueRewardNotifications(earned);
+  return earned;
+}
 function getXPVisualValue(s){
   const uid = s && (s.uid || currentUser);
   if(uid && xpVisualUid === uid && Number.isFinite(xpVisualValue)) return xpVisualValue;
@@ -387,6 +511,7 @@ function watchCurrentUserXP(s){
       const oldXP = Number(live.xp) || 0;
       live.xp = remoteXP;
       if(Date.now() > xpWatchQuietUntil) animateXPGain(live, delta, oldXP);
+      if(awardEligibleBadges(live).length) syncUserProfile(currentUser, live);
       persistLocal();
       publishPublicCard(live);
       render(false);
@@ -529,6 +654,7 @@ function applyCloudUser(username, data, card){
     users[username] = { ...(users[username] || {}), ...incoming, username, password: undefined, admin: incoming.admin === true };
   }
   const live = users[username] || incoming;
+  ensureProgressState(live);
   socialIndex[username] = {
     ...(card || socialIndex[username] || {}),
     uid: live.uid || (card && card.uid) || '',
@@ -1351,7 +1477,8 @@ function requireSignupCode(username, email, password, token){
     try{
       await waitFirestore();
       const weekId = currentWeekId();
-      const profile = { username, displayName: username, email, xp: 0, weeklyXp: 0, weekId, streak: 0, completed: [], completionDates: [], badges: [], checks: {} };
+      const profile = { username, displayName: username, email, xp: 0, weeklyXp: 0, weekId, streak: 0, completed: [], completionDates: [], badges: [], checks: {}, coins: 0, mastery: {}, masteryMilestones: {}, communityViewedRecipes: [], ownedCosmetics: [], equippedCosmetics: {} };
+      ensureProgressState(profile);
       const created = await window.createUser(email, password, profile);
       users[username] = { ...profile, uid: created.uid, password };
       await publishPublicCard(users[username]);
@@ -1583,6 +1710,8 @@ function goTo(where){
  
 function logout(){
   currentUser = null;
+  activeThemeUser = '';
+  rewardNotifications = [];
   avatarOpen = false;
   viewingUser = null;
   screen = 'landing';
@@ -1649,6 +1778,7 @@ async function enterWithGoogleUser(gUser){
         google: true,
         admin: false
       };
+      ensureProgressState(data);
       await window.editUserData(gUser.uid, data);
     }
   }
@@ -1681,6 +1811,7 @@ async function enterWithGoogleUser(gUser){
     google: true,
     admin: data.admin === true
   };
+  ensureProgressState(users[username]);
   currentUser = username;
   ensureWeek(users[username]);
   persistLocal();
@@ -1800,6 +1931,8 @@ async function loginFromCloud(identifier, password){
    ========================================================= */
 function renderApp(){
   const s = users[currentUser];
+  ensureProgressState(s);
+  applyUserTheme(s);
   if(s && s.uid && xpVisualUid !== s.uid){ xpVisualUid = s.uid; xpVisualValue = Number(s.xp) || 0; xpVisualQueue = []; }
   watchCurrentUserXP(s);
   if(s && s.uid) settlePreviousChallengePlacements().catch(err => console.error('Could not settle challenge placements:', err));
@@ -1820,6 +1953,7 @@ function renderApp(){
         <div class="pill level">${levelInfo.name}
           <div class="xp-bar-wrap"><div class="xp-bar-fill" style="width:${pct}%;"></div></div>
         </div>
+        <button type="button" class="pill coin-pill" title="Open your profile and cosmetics" onclick="openProfile('${jsStr(currentUser)}')">🪙 ${s.coins}</button>
         <div class="avatar-menu">
           <button type="button" class="avatar-btn${appView==='profile' && !viewingUser?' active':''}" title="Profile" aria-label="Open profile" onclick="openProfile('${jsStr(currentUser)}')">${s.photo ? `<img src="${s.photo}" alt="">` : esc(currentUser.slice(0,1).toUpperCase())}</button>
         </div>
@@ -1848,9 +1982,95 @@ function renderApp(){
       )}
       </div>
     </div>
+    ${renderRewardOverlay()}
     ${socialNotice ? `<div class="social-toast">${esc(socialNotice)}</div>` : ''}
   </div>
   `;
+}
+
+function renderRewardOverlay(){
+  if(!rewardNotifications.length) return '';
+  const rows = rewardNotifications;
+  const headline = rows.length === 1
+    ? (rows[0].kind === 'mastery' ? 'Mastery unlocked!' : rows[0].kind === 'badge' ? 'Badge earned!' : rows[0].kind === 'cosmetic' ? 'New style unlocked!' : 'Challenge reward!')
+    : 'A little kitchen celebration!';
+  return `<div class="reward-overlay" role="dialog" aria-modal="true" aria-labelledby="reward-title">
+    <div class="reward-card"><div class="reward-sparkle" aria-hidden="true">✦</div>
+      <p class="action-eyebrow">A new milestone</p><h2 id="reward-title">${headline}</h2>
+      <div class="reward-list">${rows.map(item=>`<article class="reward-row"><span class="reward-icon">${esc(item.icon)}</span><div><b>${esc(item.name)}</b><small>${esc(item.description)}</small></div></article>`).join('')}</div>
+      <button type="button" class="btn btn-primary reward-dismiss" onclick="dismissRewardNotifications()">Lovely · keep going</button>
+    </div>
+  </div>`;
+}
+function dismissRewardNotifications(){
+  rewardNotifications = [];
+  render(false);
+}
+function purchaseCosmetic(id){
+  const s = users[currentUser];
+  const item = COSMETICS.find(c => c.id === id);
+  if(!s || !item) return;
+  ensureProgressState(s);
+  if(s.ownedCosmetics.includes(id)){ showNotice('You already own this style.'); return; }
+  if(s.coins < item.cost){ showNotice('You need ' + (item.cost - s.coins) + ' more coins for this style.'); return; }
+  s.coins -= item.cost;
+  s.ownedCosmetics.push(id);
+  syncUserProfile(currentUser, s);
+  queueRewardNotifications([rewardNotification('cosmetic', item.name + ' unlocked!', 'Your new style is ready to equip.', item.icon)]);
+  render(false);
+}
+function equipCosmetic(id){
+  const s = users[currentUser];
+  const item = COSMETICS.find(c => c.id === id);
+  if(!s || !item) return;
+  ensureProgressState(s);
+  if(!s.ownedCosmetics.includes(id)) return;
+  s.equippedCosmetics[item.type] = id;
+  if(item.type === 'theme'){
+    s.theme = item.theme;
+    if(window.Theme) window.Theme.apply(item.theme);
+    activeThemeUser = s.username || currentUser || '';
+  }
+  syncUserProfile(currentUser, s);
+  showNotice(item.name + ' equipped.');
+  render(false);
+}
+function equippedAvatarClass(person){
+  const equipped = person && person.equippedCosmetics || {};
+  const outline = COSMETICS.find(c => c.id === equipped.outline);
+  const effect = COSMETICS.find(c => c.id === equipped.effect);
+  return [outline && outline.type === 'outline' ? 'avatar-' + outline.id : '', effect && effect.type === 'effect' ? 'avatar-' + effect.id : ''].filter(Boolean).join(' ');
+}
+function renderCosmeticStore(s){
+  if(!s || s.username !== currentUser) return '';
+  ensureProgressState(s);
+  const groups = [
+    ['Themes', 'theme'],
+    ['Profile outlines', 'outline'],
+    ['Profile effects', 'effect']
+  ];
+  return `<section class="cosmetic-store">
+    <div class="cosmetic-store-head"><div><h3>Style your kitchen</h3><p>Coins unlock profile looks and color themes. A few are free to start.</p><p class="coin-earn-note">Earn 5 coins per recipe, 3 per challenge vote, and 8 per challenge entry. Top 10 challenge finishes earn extra.</p></div><div class="coin-wallet"><span>🪙</span><b>${s.coins}</b><small>coins</small></div></div>
+    ${groups.map(([label,type])=>`<h4>${label}</h4><div class="cosmetic-grid">${COSMETICS.filter(item=>item.type===type).map(item=>{
+      const owned = s.ownedCosmetics.includes(item.id);
+      const equipped = s.equippedCosmetics[type] === item.id;
+      const action = equipped ? `<button type="button" class="btn btn-ghost" disabled>Equipped ✓</button>` : owned
+        ? `<button type="button" class="btn btn-primary" onclick="equipCosmetic('${item.id}')">Equip</button>`
+        : `<button type="button" class="btn ${s.coins>=item.cost?'btn-gold':'btn-ghost'}" onclick="purchaseCosmetic('${item.id}')" ${s.coins<item.cost?'disabled':''}>${item.cost===0?'Free':'🪙 '+item.cost+' · Unlock'}</button>`;
+      return `<article class="cosmetic-card${equipped?' equipped':''}"><span class="cosmetic-icon">${item.icon}</span><div><b>${esc(item.name)}</b><small>${esc(item.desc)}</small></div>${action}</article>`;
+    }).join('')}</div>`).join('')}
+  </section>`;
+}
+function renderMasteryProgress(person){
+  const mastery = person && person.mastery || {};
+  const entries = KITCHEN_TOOLS.map(tool=>({id:'tool-'+tool.id,name:tool.name,icon:'🛠️'})).concat(MASTERY_STYLES.map(style=>({id:'style-'+style.id,name:style.name,icon:style.icon})));
+  return `<section class="mastery-section"><div class="mastery-section-head"><div><h3>Kitchen mastery</h3><p>Each completed recipe sharpens the tools and techniques you use.</p></div><span class="mastery-milestone-note">1 · 3 · 5 recipes</span></div><div class="mastery-grid">${entries.map(entry=>{
+    const count = Math.max(0, Number(mastery[entry.id]) || 0);
+    const rank = MASTERY_STEPS.filter(step=>count>=step.count).slice(-1)[0];
+    const next = MASTERY_STEPS.find(step=>count<step.count);
+    const progress = next ? Math.min(100, Math.round(count/next.count*100)) : 100;
+    return `<article class="mastery-card${rank?' mastered':''}"><span>${entry.icon}</span><div class="mastery-card-copy"><b>${esc(entry.name)}</b><small>${rank?rank.title:count+' recipe'+(count===1?'':'s')+' completed'}${next?' · '+next.count+' for '+next.title:''}</small><div class="mastery-progress"><i style="width:${progress}%"></i></div></div></article>`;
+  }).join('')}</div></section>`;
 }
  
 function switchAppView(v, toolId){
@@ -1878,6 +2098,9 @@ function switchAppView(v, toolId){
     learnToolFocus = null;
   } else if(v === 'learn' && currentUser){
     users[currentUser].visitedLearn = true;
+    ensureProgressState(users[currentUser]);
+    awardEligibleBadges(users[currentUser]);
+    syncUserProfile(currentUser, users[currentUser]);
     learnToolFocus = toolId || null;
   } else if(v === 'leaderboard' || v === 'groups'){
     activeDishId = null;
@@ -1904,6 +2127,9 @@ function switchAppView(v, toolId){
 function openLearnTool(toolId){
   const s = users[currentUser];
   s.visitedLearn = true;
+  ensureProgressState(s);
+  awardEligibleBadges(s);
+  syncUserProfile(currentUser, s);
   appView = 'learn';
   learnToolFocus = toolId;
   avatarOpen = false;
@@ -2278,6 +2504,15 @@ function recordDishView(dishId){
   if(!dish || !dish.community) return Promise.resolve(false);
   const key = String(dish.id);
   dish.views = (Number(dish.views) || 0) + 1;
+  const s = users[currentUser];
+  ensureProgressState(s);
+  let progressChanged = false;
+  if(!s.communityViewedRecipes.includes(key)){
+    s.communityViewedRecipes.push(key);
+    awardEligibleBadges(s);
+    progressChanged = true;
+  }
+  if(progressChanged){ syncUserProfile(currentUser, s); render(false); }
   return waitRecipes()
     .then(() => window.incrementRecipeStat(key, 'views'))
     .then(() => true)
@@ -2481,10 +2716,14 @@ function finalizeDish(dishId, photo){
   const s = users[currentUser];
   const dish = findDish(dishId);
   if(!dish || dishCompleted(s, dish.id)) return;
+  ensureProgressState(s);
  
   const prevLevel = levelIndex(s.xp);
   s.completed.push(dish.id);
   awardXP(s, dish.xp);
+  const coinsEarned = awardCoins(s, 5);
+  if(dish.community) s.communityCompletions += 1;
+  const newMastery = awardRecipeMastery(s, dish);
   const newLevel = levelIndex(s.xp);
   if(!dish.community) s.currentGroup = currentPathGroup(s);
  
@@ -2501,8 +2740,7 @@ function finalizeDish(dishId, photo){
     s.completionDates.push(today);
   }
  
-  const newBadges = BADGES.filter(b=>!s.badges.includes(b.id) && b.check(s));
-  newBadges.forEach(b=>s.badges.push(b.id));
+  const newBadges = awardEligibleBadges(s);
 
   syncUserProfile(currentUser, s);
 
@@ -2518,15 +2756,15 @@ function finalizeDish(dishId, photo){
     if(dish.authorUid){
       xpWatchQuietUntil = Date.now() + 5000;
       waitFirestore().then(() => window.awardRecipeCompletionXP({ recipeId: key, completerUid: s.uid, awardWeekId: currentWeekId() }))
-        .then(result => { if(result && result.awarded && result.authorUid === s.uid){ s.xp = result.xp - 10; s.weeklyXp = result.weeklyXp - 10; s.weekId = currentWeekId(); awardXP(s, 10); syncUserProfile(currentUser, s); render(false); } })
+        .then(result => { if(result && result.awarded && result.authorUid === s.uid){ s.xp = result.xp - 10; s.weeklyXp = result.weeklyXp - 10; s.weekId = currentWeekId(); awardXP(s, 10); awardEligibleBadges(s); syncUserProfile(currentUser, s); render(false); } })
         .catch(e => console.error('Could not award recipe completion XP:', e));
     }
   }
   completionPhoto = '';
  
-  lastCompletion = { dish, leveledUp: newLevel>prevLevel, newLevelIdx:newLevel, newBadges, photo, photoPreview: photo || '', photoSaved: !photo || !s.uid, photoSaveError: false };
+  lastCompletion = { dish, leveledUp: newLevel>prevLevel, newLevelIdx:newLevel, newBadges, newMastery, coinsEarned, photo, photoPreview: photo || '', photoSaved: !photo || !s.uid, photoSaveError: false };
   dishStage = 'completed';
-  spawnConfettiGlobal();
+  if(!rewardNotifications.length) spawnConfettiGlobal();
   render();
   photoSave.then(record => {
     if(lastCompletion && lastCompletion.dish.id === dish.id){ lastCompletion.photoSaved = true; lastCompletion.photoPreview = record && record.photoUrl || lastCompletion.photoPreview; lastCompletion.photo = ''; render(false); }
@@ -2566,10 +2804,11 @@ function renderCompletedPage(s){
       <h2>Recipe completed!</h2>
       <p class="completed-sub">You cooked <b>${dish.name}</b>. That’s a meal well made.</p>
       <div class="completion-xp-card"><span>XP EARNED</span><strong>+${dish.xp}</strong><small>Keep cooking to grow your streak</small></div>
+      <div class="completion-coins-card"><span>🪙</span><b>+${lastCompletion.coinsEarned || 5} coins</b><small>Spend them on themes and profile style.</small></div>
       <div class="completion-streak-card"><span>🔥</span><div><b>${s.streak}-day cooking streak</b><small>Your kitchen showed up today. Keep it going.</small></div></div>
       ${completionsText(dish.id) ? `<p class="completed-sub">${completionsText(dish.id)} so far</p>` : ''}
       ${leveledUp ? `<p class="completed-level">You have grown into a ${LEVELS[newLevelIdx].name}!</p>` : ''}
-      ${newBadges.length ? `<div class="completed-badges">${newBadges.map(b=>`<div class="completed-badge-chip">${b.name}</div>`).join('')}</div>` : ''}
+      ${newBadges.length ? `<div class="completed-badges">${newBadges.map(b=>`<div class="completed-badge-chip">${esc(b.icon || '🏅')} ${esc(b.name)}</div>`).join('')}</div>` : ''}
       ${lastCompletion.photoSaveError ? `<p class="completed-sub">Your completion is saved, but its photo did not upload.</p><button class="btn btn-ghost" onclick="retryCompletionPhoto()">Retry photo upload</button>` : ''}
       <div class="completed-actions">
         <button class="btn btn-gold" onclick="openChallengesAfterCompletion()">See this week’s challenge</button>
@@ -2791,10 +3030,14 @@ function settlePreviousChallengePlacements(entries, weekId){
         xpWatchQuietUntil = Date.now() + 5000;
         const result = await window.awardChallengePlacement({ entryId: past[i].id, xp: CHALLENGE_PLACEMENT_XP[i], weekId: currentWeek });
         if(result && result.awarded && s && result.uid === s.uid){
+          ensureProgressState(s);
           s.xp = result.xp - CHALLENGE_PLACEMENT_XP[i];
           s.weeklyXp = result.weeklyXp - CHALLENGE_PLACEMENT_XP[i];
           s.weekId = currentWeek;
           awardXP(s, CHALLENGE_PLACEMENT_XP[i]);
+          awardCoins(s, CHALLENGE_PLACEMENT_COINS[i]);
+          awardEligibleBadges(s);
+          queueRewardNotifications([rewardNotification('challenge', 'Top ' + (i + 1) + ' finish!', 'You earned +' + CHALLENGE_PLACEMENT_XP[i] + ' XP and +' + CHALLENGE_PLACEMENT_COINS[i] + ' coins.', '🏆')]);
           syncUserProfile(currentUser, s);
           render(false);
         }
@@ -2822,6 +3065,13 @@ function loadChallengeData(){
     challengeEntries = entries || [];
     challengeOptions = options || [];
     challengeVote = vote || null;
+    const ownEntry = challengeEntries.find(entry => entry.uid === s.uid);
+    if(ownEntry && (Number(ownEntry.votes) || 0) > (Number(s.challengeEntryVotes) || 0)){
+      ensureProgressState(s);
+      s.challengeEntryVotes = Number(ownEntry.votes) || 0;
+      awardEligibleBadges(s);
+      syncUserProfile(currentUser, s);
+    }
     challengePastEntries = await settlePreviousChallengePlacements(past || [], weekId);
     challengeLoading = false;
     if(appView === 'challenges') render(false);
@@ -2847,21 +3097,21 @@ function renderChallenges(s){
       </div>
       <div class="challenge-feature">
         <div class="challenge-feature-copy"><span class="challenge-kicker">THE CHALLENGE</span><h2>${esc(challengeTitle(weekId))}</h2><p>Enter an approved recipe with its saved photo. We’ll use your completion photo when available, or the recipe photo.</p></div>
-        <div class="challenge-prize"><b>Top 10</b><span>earn XP</span><small>1st · 500 XP &nbsp; 2nd · 400 XP &nbsp; 3rd · 300 XP</small></div>
+      <div class="challenge-prize"><b>Top 10</b><span>earn XP + coins</span><small>1st · 500 XP + 100 coins &nbsp; 2nd · 400 XP + 80 coins &nbsp; 3rd · 300 XP + 60 coins</small></div>
       </div>
       ${challengeNotice ? `<div class="challenge-notice">${esc(challengeNotice)}</div>` : ''}
       ${challengeLoading ? `<div class="skel"></div><div class="skel"></div>` : `
         ${currentEntry ? `<div class="challenge-entry-confirm"><span class="challenge-confirm-icon">✓</span><div><strong>You’re in the challenge!</strong><span>${esc(currentEntry.recipeName)} is up for community votes.</span></div></div>` : `
           <div class="challenge-submit">
             <div class="challenge-submit-copy"><span class="challenge-submit-icon" aria-hidden="true">✦</span><div><div class="action-eyebrow">Your turn</div><h3>Enter this week</h3><p>Pick an approved recipe. Your completion photo is used when saved; otherwise we’ll use its recipe photo.</p></div></div>
-            ${challengeOptions.length ? `<div class="challenge-submit-controls"><select id="challenge-recipe-choice" onchange="chooseChallengeRecipe(this.value)"><option value="">Choose a recipe</option>${challengeOptions.map(o=>`<option value="${esc(o.id)}" ${challengeRecipeChoice===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select><button type="button" class="btn btn-primary challenge-submit-btn" onclick="submitWeeklyChallenge()" ${challengeBusy?'disabled':''}>${challengeBusy?'Entering…':'Submit my entry'}</button>${selectedRecipe ? `<div class="challenge-selected-recipe"><img src="${esc(safePhotoSrc(selectedRecipe.photoUrl))}" alt=""><span>${selectedRecipe.photoSource === 'completion' ? 'Completion photo' : 'Recipe photo'} ready · ${esc(selectedRecipe.name)}</span></div>` : ''}</div>` : `<div class="challenge-no-options">Publish an approved recipe with a saved photo to enter this week.</div>`}
+            ${challengeOptions.length ? `<div class="challenge-submit-controls"><select id="challenge-recipe-choice" onchange="chooseChallengeRecipe(this.value)"><option value="">Choose a recipe</option>${challengeOptions.map(o=>`<option value="${esc(o.id)}" ${challengeRecipeChoice===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select><button type="button" class="btn btn-primary challenge-submit-btn" onclick="submitWeeklyChallenge()" ${challengeBusy?'disabled':''}>${challengeBusy?'Entering…':'Submit entry · 8 coins'}</button>${selectedRecipe ? `<div class="challenge-selected-recipe"><img src="${esc(safePhotoSrc(selectedRecipe.photoUrl))}" alt=""><span>${selectedRecipe.photoSource === 'completion' ? 'Completion photo' : 'Recipe photo'} ready · ${esc(selectedRecipe.name)}</span></div>` : ''}</div>` : `<div class="challenge-no-options">Publish an approved recipe with a saved photo to enter this week.</div>`}
           </div>
         `}
-        <div class="challenge-vote-heading"><div><div class="action-eyebrow">Community picks</div><h2>Vote for your favorite</h2><p>${voted ? 'Your vote is locked in. Thanks for supporting a fellow cook.' : s.challengeVoteBonusClaimed ? 'Choose one dish to support. You can cast one vote each week.' : 'Choose the dish you’d most love to try. Your first challenge vote earns a 50 XP bonus.'}</p></div>${voted ? '<span class="vote-cast-mark">✓ Vote cast</span>' : s.challengeVoteBonusClaimed ? '<span class="vote-cast-mark">1 vote this week</span>' : '<span class="vote-bonus-pill">+50 XP first vote</span>'}</div>
+        <div class="challenge-vote-heading"><div><div class="action-eyebrow">Community picks</div><h2>Vote for your favorite</h2><p>${voted ? 'Your vote is locked in. Thanks for supporting a fellow cook.' : s.challengeVoteBonusClaimed ? 'Choose one dish to support. Every vote earns 3 coins.' : 'Choose the dish you’d most love to try. Your first vote earns 50 XP, and every vote earns 3 coins.'}</p></div>${voted ? '<span class="vote-cast-mark">✓ Vote cast</span>' : s.challengeVoteBonusClaimed ? '<span class="vote-cast-mark">+3 coins</span>' : '<span class="vote-bonus-pill">+50 XP · +3 coins</span>'}</div>
         <div class="challenge-entry-grid">
           ${ranked.length ? ranked.map((entry,i)=>`<article class="challenge-entry-card${voted && challengeVote.entryId===entry.id?' challenge-voted-card':''}"><div class="challenge-entry-photo"><img src="${esc(safePhotoSrc(entry.photoUrl || entry.photo))}" alt="${esc(entry.recipeName)}" loading="lazy"><span class="challenge-rank">#${i+1}</span>${voted && challengeVote.entryId===entry.id?'<span class="challenge-favorite-mark">Your pick ♥</span>':''}</div><div class="challenge-entry-info"><div class="challenge-entry-title">${esc(entry.recipeName)}</div><div class="challenge-entry-by">by ${esc(entry.username || 'Cook')}</div><div class="challenge-entry-actions"><span class="challenge-vote-count"><b>${Number(entry.votes)||0}</b> vote${Number(entry.votes)===1?'':'s'}</span>${!voted && entry.uid!==s.uid ? `<button type="button" class="btn btn-gold challenge-vote-btn" onclick="voteWeeklyChallenge('${jsStr(entry.id)}')" ${challengeBusy?'disabled':''}>${challengeBusy?'Counting your vote…':'♥  Vote for this dish'}</button>` : entry.uid===s.uid ? '<span class="challenge-own-entry">Your entry</span>' : voted && challengeVote.entryId===entry.id ? '<span class="challenge-voted-entry">Your vote ✓</span>' : ''}</div></div></article>`).join('') : `<div class="empty-illus challenge-empty">No entries yet — be the first to cook up a submission.</div>`}
         </div>
-        ${past.length ? `<section class="challenge-past"><h3>Last week’s winners</h3><div class="challenge-winners">${past.slice(0,10).map((entry,i)=>`<div class="challenge-winner-row"><b>#${i+1} ${esc(entry.username||'Cook')}</b><span>${esc(entry.recipeName)}</span><strong>+${CHALLENGE_PLACEMENT_XP[i]} XP</strong></div>`).join('')}</div></section>` : ''}
+        ${past.length ? `<section class="challenge-past"><h3>Last week’s winners</h3><div class="challenge-winners">${past.slice(0,10).map((entry,i)=>`<div class="challenge-winner-row"><b>#${i+1} ${esc(entry.username||'Cook')}</b><span>${esc(entry.recipeName)}</span><strong>+${CHALLENGE_PLACEMENT_XP[i]} XP · ${CHALLENGE_PLACEMENT_COINS[i]} 🪙</strong></div>`).join('')}</div></section>` : ''}
       `}
     </section>
   `;
@@ -2876,8 +3126,14 @@ async function submitWeeklyChallenge(){
   try{
     const entry = await window.submitChallengeEntry({ challengeId: currentWeekId(), weekId: currentWeekId(), recipeId: challengeRecipeChoice, username: currentUser });
     challengeEntries = [entry].concat(challengeEntries || []);
+    const s = users[currentUser];
+    ensureProgressState(s);
+    s.challengeEntriesCount += 1;
+    const coins = awardCoins(s, 8);
+    awardEligibleBadges(s);
+    syncUserProfile(currentUser, s);
     challengeNotice = '';
-    showNotice('Your challenge entry is live!');
+    showNotice('Your challenge entry is live · +' + coins + ' coins.');
   }catch(err){ challengeNotice = err.message || 'Could not submit your entry.'; }
   challengeBusy = false; render(false);
 }
@@ -2889,12 +3145,17 @@ async function voteWeeklyChallenge(entryId){
     const result = await window.voteChallengeEntry({ challengeId: currentWeekId(), entryId, weekId: currentWeekId() });
     challengeVote = { entryId };
     challengeEntries = await window.listChallengeEntries(currentWeekId());
+    const s = users[currentUser];
+    ensureProgressState(s);
+    s.challengeVotesCount += 1;
+    const coins = awardCoins(s, 3);
     if(result.bonus){
-      const s = users[currentUser];
       s.xp = result.xp - 50; s.weeklyXp = result.weeklyXp - 50; s.weekId = currentWeekId();
-      awardXP(s, 50); s.challengeVoteBonusClaimed = true; syncUserProfile(currentUser, s);
+      awardXP(s, 50); s.challengeVoteBonusClaimed = true;
     }
-    challengeNotice = result.bonus ? 'Vote counted — you earned your one-time 50 XP bonus!' : 'Your vote has been counted.';
+    awardEligibleBadges(s);
+    syncUserProfile(currentUser, s);
+    challengeNotice = result.bonus ? 'Vote counted — +50 XP and +' + coins + ' coins!' : 'Your vote has been counted · +' + coins + ' coins.';
     spawnConfettiGlobal();
   }catch(err){ challengeNotice = err.message || 'Could not submit your vote.'; }
   challengeBusy = false; render(false);
@@ -3088,13 +3349,42 @@ function startAnotherRecipeUpload(){
   recipeDraftInstructions = '';
   render();
 }
+function cleanCopiedRecipeText(value){
+  const entities = {nbsp:' ',amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",rsquo:'’',lsquo:'‘',rdquo:'”',ldquo:'“',ndash:'–',mdash:'—',frac12:'½',frac14:'¼',frac34:'¾',deg:'°',check:'☐',square:'□'};
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/&#(x[\da-f]+|\d+);?/gi, (match, code) => {
+      const n = code[0].toLowerCase() === 'x' ? parseInt(code.slice(1), 16) : parseInt(code, 10);
+      try { return n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : ' '; } catch(e) { return ' '; }
+    })
+    .replace(/&([a-z]+);/gi, (match, name) => Object.prototype.hasOwnProperty.call(entities, name.toLowerCase()) ? entities[name.toLowerCase()] : match)
+    .replace(/<input\b[^>]*type\s*=\s*["']?checkbox["']?[^>]*>/gi, ' ')
+    .replace(/<br\s*\/?\s*>|<\/(?:li|p|div|h[1-6]|section|tr)>/gi, '\n')
+    .replace(/<li\b[^>]*>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+    .split('\n')
+    .map(line => line
+      .replace(/\\([\\`*_{}\[\]()#+.!|>~-])/g, '$1')
+      .replace(/\*\*(.*?)\*\*|__(.*?)__/g, '$1$2')
+      .replace(/\*(.*?)\*|_(.*?)_/g, '$1$2')
+      .replace(/~~(.*?)~~/g, '$1')
+      .replace(/[☐☑☒□▢◻◽✅✔✓]/g, '')
+      .replace(/^\s*(?:(?:[-*+•]|\d+[.)])\s*)?(?:\[[ xX]\]|\([ xX]\)|\{[ xX]\}|\s)*(?:(?:[-*+•]|\d+[.)])\s*)?/g, '')
+      .trim())
+    .filter(line => line && !/^(?:jump to recipe|print(?: this)? recipe|save recipe|recipe card|ingredients:?|instructions:?|directions:?|share)$/i.test(line))
+    .join('\n');
+}
 function captureRecipeDraftFields(){
   const nameEl = document.getElementById('recipe-name');
   const ingEl = document.getElementById('recipe-ingredients');
   const instEl = document.getElementById('recipe-instructions');
   if(nameEl) recipeDraftName = nameEl.value;
-  if(ingEl) recipeDraftIngredients = ingEl.value;
-  if(instEl) recipeDraftInstructions = instEl.value;
+  if(ingEl) recipeDraftIngredients = cleanCopiedRecipeText(ingEl.value);
+  if(instEl) recipeDraftInstructions = cleanCopiedRecipeText(instEl.value);
   const timeEl = document.getElementById('recipe-time');
   const servEl = document.getElementById('recipe-servings');
   if(timeEl) recipeDraftTime = timeEl.value;
@@ -3295,6 +3585,11 @@ async function submitRecipeUpload(e){
       payload.photoProvider = 'cloudinary';
     }
     const result = await window.createRecipe(payload);
+    const s = users[currentUser];
+    ensureProgressState(s);
+    s.recipesPosted = (Number(s.recipesPosted) || 0) + 1;
+    awardEligibleBadges(s);
+    syncUserProfile(currentUser, s);
     const live = communityDishFromCloud({ ...result.data, id: result.id });
     communityDishes = [live].concat(communityDishes.filter(d => String(d.id) !== String(live.id)));
     if(runId !== recipeUploadRunId){
@@ -3584,7 +3879,7 @@ function renderProfile(s){
         </div>
       </div>
       <div class="profile-header">
-        <div class="profile-avatar ${isSelf?'editable':''}" ${isSelf ? `onclick="document.getElementById('photo-input').click()"` : ''} style="${safePhotoSrc(photo) ? '' : 'background:hsl('+hueFromName(display)+',42%,36%);'}">
+        <div class="profile-avatar ${isSelf?'editable':''} ${equippedAvatarClass(person)}" ${isSelf ? `onclick="document.getElementById('photo-input').click()"` : ''} style="${safePhotoSrc(photo) ? '' : 'background:hsl('+hueFromName(display)+',42%,36%);'}">
           ${safePhotoSrc(photo) ? `<img src="${safePhotoSrc(photo)}" alt="${esc(String(display).slice(0,1).toUpperCase())}">` : esc(String(display).slice(0,1).toUpperCase())}
           ${isSelf ? `<div class="photo-edit">Set photo</div>` : ''}
         </div>
@@ -3616,10 +3911,12 @@ function renderProfile(s){
       <div class="badge-grid">
         ${BADGES.map(b=>`
           <div class="badge-card ${Array.isArray(badges) && badges.includes(b.id)?'earned':''}">
-            <h5>${b.name}</h5>
-            <p>${b.desc}</p>
+            <div class="b-icon">${esc(b.icon || '🏅')}</div><h5>${esc(b.name)}</h5>
+            <p>${esc(b.desc)}</p>
           </div>`).join('')}
       </div>
+      ${renderMasteryProgress(person)}
+      ${isSelf ? renderCosmeticStore(person) : ''}
     </div>
     ${isSelf ? `<div class="profile-footer"><button type="button" class="btn btn-ghost btn-block" onclick="openFeedback()">Send feedback</button><button type="button" class="btn btn-ghost btn-block" onclick="logout()">Log out</button></div>` : ''}
   `;
