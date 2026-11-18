@@ -82,7 +82,7 @@ const THEME_OPTIONS = [
   ['green','Green','#2F9163','🌿'],['blue','Blue','#2F6BDB','🔵'],['violet','Violet','#7351D9','🟣'],['rose','Rose','#D1427A','🌸'],['orange','Orange','#D9691F','🟠'],['mono','Mono','#26251E','⚫'],['red','Red','#D64545','🔴'],['yellow','Yellow','#B78B12','🟡'],['teal','Teal','#168C85','🩵'],['pink','Pink','#D24D9A','💗'],['indigo','Indigo','#4C58B8','🔷'],['lime','Lime','#629B26','🟢']
 ];
 const COSMETICS = [
-  ...THEME_OPTIONS.flatMap(([accent,name,color,icon])=>['light','dark'].map(mode=>({id:'theme-'+mode+'-'+accent,type:'theme',name:`${name} ${mode==='dark'?'Night':'Light'}`,icon,cost:accent==='green'&&mode==='light'?0:accent==='green'&&mode==='dark'?0:45,desc:`${mode==='dark'?'Dark':'Light'} mode with a ${name.toLowerCase()} accent.`,theme:{mode,accent},color}))),
+  ...THEME_OPTIONS.map(([accent,name,color,icon])=>({id:'theme-'+accent,type:'theme',name,icon,cost:accent==='green'?0:45,desc:`A ${name.toLowerCase()} palette with its own soft ambient background.`,theme:{accent},color})),
   {id:'outline-chive', type:'outline', name:'Chive Stitch', icon:'🪴', cost:0, desc:'A simple green profile outline.'},
   {id:'outline-sprout', type:'outline', name:'Fresh Sprout', icon:'🌱', cost:0, desc:'A soft mint ring around your profile photo.'},
   {id:'outline-lavender', type:'outline', name:'Lavender Edge', icon:'🪻', cost:0, desc:'A gentle violet profile outline.'},
@@ -106,7 +106,8 @@ const COSMETICS = [
 const users = {};      // { username: { username, email, password, xp, streak, completed:[], completionDates:[], badges:[], currentGroup:0, checks:{} } }
 let currentUser = null;
 let screen = 'landing';     // landing | login | signup | app
-let appView = 'path';       // browse | path | profile | learn | leaderboard
+let appView = 'path';       // browse | path | schedule | shop | profile | learn | leaderboard
+let scheduleWeekOffset = 0;
 let rewardNotifications = [];
 let activeThemeUser = '';
 let avatarOpen = false;
@@ -353,25 +354,30 @@ function ensureProgressState(s){
   s.challengeEntryVotes = Math.max(0, Number(s.challengeEntryVotes) || 0);
   s.ownedCosmetics = Array.isArray(s.ownedCosmetics) ? s.ownedCosmetics : [];
   s.unlockedRecipes = Array.isArray(s.unlockedRecipes) ? s.unlockedRecipes : [];
-  const legacyThemes = {'theme-garden':'theme-light-green','theme-midnight':'theme-dark-green','theme-citrus':'theme-light-orange','theme-bluehour':'theme-dark-blue','theme-berry':'theme-dark-violet'};
+  const legacyThemes = {'theme-garden':'theme-green','theme-midnight':'theme-green','theme-citrus':'theme-orange','theme-bluehour':'theme-blue','theme-berry':'theme-violet'};
+  THEME_OPTIONS.forEach(([accent])=>{legacyThemes['theme-light-'+accent]='theme-'+accent;legacyThemes['theme-dark-'+accent]='theme-'+accent;});
+  const priorThemeId = s.equippedCosmetics && s.equippedCosmetics.theme;
+  if(!s.themeMode) s.themeMode = ['theme-midnight','theme-bluehour','theme-berry'].includes(priorThemeId) || String(priorThemeId||'').startsWith('theme-dark-') || (s.theme && s.theme.mode==='dark') ? 'dark' : 'light';
+  s.themeMode = s.themeMode === 'dark' ? 'dark' : 'light';
   s.ownedCosmetics = s.ownedCosmetics.map(id=>legacyThemes[id]||id);
-  ['theme-light-green','theme-dark-green','outline-chive','outline-sprout','outline-lavender','effect-none','effect-petal','streak-default'].forEach(id => {
+  ['theme-green','outline-chive','outline-sprout','outline-lavender','effect-none','effect-petal','streak-default'].forEach(id => {
     if(!s.ownedCosmetics.includes(id)) s.ownedCosmetics.push(id);
   });
   s.equippedCosmetics = s.equippedCosmetics && typeof s.equippedCosmetics === 'object' ? s.equippedCosmetics : {};
   if(legacyThemes[s.equippedCosmetics.theme]) s.equippedCosmetics.theme = legacyThemes[s.equippedCosmetics.theme];
-  if(!s.equippedCosmetics.theme || !s.ownedCosmetics.includes(s.equippedCosmetics.theme)) s.equippedCosmetics.theme = 'theme-light-green';
+  if(!s.equippedCosmetics.theme || !s.ownedCosmetics.includes(s.equippedCosmetics.theme)) s.equippedCosmetics.theme = 'theme-green';
   if(!s.equippedCosmetics.outline || !s.ownedCosmetics.includes(s.equippedCosmetics.outline)) s.equippedCosmetics.outline = 'outline-chive';
   if(!s.equippedCosmetics.effect || !s.ownedCosmetics.includes(s.equippedCosmetics.effect)) s.equippedCosmetics.effect = 'effect-none';
   if(!s.equippedCosmetics.completion) s.equippedCosmetics.completion = '';
   if(!s.equippedCosmetics.streak || !s.ownedCosmetics.includes(s.equippedCosmetics.streak)) s.equippedCosmetics.streak = 'streak-default';
+  s.mealSchedule = s.mealSchedule && typeof s.mealSchedule === 'object' ? s.mealSchedule : {};
 }
 function applyUserTheme(s){
   if(!s) return;
   ensureProgressState(s);
   if(activeThemeUser === s.username && window.Theme) return;
   const selected = COSMETICS.find(item => item.id === s.equippedCosmetics.theme && item.type === 'theme');
-  if(window.Theme) window.Theme.apply(selected ? selected.theme : {mode:'light',accent:'green'});
+  if(window.Theme) window.Theme.apply({mode:s.themeMode || 'light',accent:selected ? selected.theme.accent : 'green'});
   activeThemeUser = s.username || currentUser || '';
 }
 function awardCoins(s, amount){
@@ -1042,7 +1048,7 @@ function navSnapshot(){
     profileOrigin: profileOrigin
   };
 }
-const ROUTE_VIEWS = new Set(['path','browse','shop','learn','challenges','leaderboard','groups','upload','profile','admin']);
+const ROUTE_VIEWS = new Set(['path','browse','shop','schedule','learn','challenges','leaderboard','groups','upload','profile','admin']);
 function routeForSnapshot(snap){
   if(snap.screen === 'login') return '/login';
   if(snap.screen === 'signup') return '/signup';
@@ -1995,7 +2001,23 @@ function renderApp(){
  
   return `
   <div class="app-shell">
-    <div class="app-topbar">
+    <aside class="app-sidebar">
+      <div class="sidebar-brand" onclick="switchAppView('path')"><span class="sidebar-brand-mark">✳</span><b>chyve</b></div>
+      <div class="sidebar-caption">YOUR KITCHEN</div>
+      <nav class="sidebar-nav" aria-label="Main navigation">
+        <button type="button" class="side-link ${appView==='browse'||appView==='upload'?'active':''}" onclick="switchAppView('browse')"><span>⌕</span><b>Browse</b></button>
+        <button type="button" class="side-link ${appView==='path'?'active':''}" onclick="switchAppView('path')"><span>⌁</span><b>Path</b></button>
+        <button type="button" class="side-link ${appView==='schedule'?'active':''}" onclick="switchAppView('schedule')"><span>▦</span><b>Schedule</b></button>
+        <button type="button" class="side-link ${appView==='shop'?'active':''}" onclick="switchAppView('shop')"><span>✦</span><b>Shop</b><small>🪙 ${s.coins}</small></button>
+        <button type="button" class="side-link ${appView==='learn'?'active':''}" onclick="switchAppView('learn')"><span>⌑</span><b>Learn</b></button>
+        <button type="button" class="side-link ${appView==='challenges'?'active':''}" onclick="switchAppView('challenges')"><span>♧</span><b>Challenges</b></button>
+        <button type="button" class="side-link ${appView==='leaderboard'||appView==='groups'?'active':''}" onclick="switchAppView('leaderboard')"><span>♙</span><b>Leaderboard</b></button>
+        ${currentUserIsAdmin() ? `<button type="button" class="side-link ${appView==='admin'?'active':''}" onclick="switchAppView('admin')"><span>⚙</span><b>Admin</b></button>` : ''}
+      </nav>
+      <div class="sidebar-bottom"><button type="button" class="sidebar-user" onclick="openProfile('${jsStr(currentUser)}')"><span class="sidebar-user-avatar">${s.photo?`<img src="${s.photo}" alt="">`:esc(currentUser.slice(0,1).toUpperCase())}</span><span><b>${esc(s.displayName||currentUser)}</b><small>${levelInfo.name} · ${s.streak} day streak</small></span><span class="sidebar-user-more">···</span></button></div>
+    </aside>
+    <section class="app-window">
+    <header class="app-topbar">
       <div class="app-topbar-brand">
         <div class="brand" style="cursor:pointer;" title="Your profile" onclick="openProfile('${jsStr(currentUser)}')">Chyve</div>
       </div>
@@ -2009,22 +2031,14 @@ function renderApp(){
           <button type="button" class="avatar-btn${appView==='profile' && !viewingUser?' active':''}" title="Profile" aria-label="Open profile" onclick="openProfile('${jsStr(currentUser)}')">${s.photo ? `<img src="${s.photo}" alt="">` : esc(currentUser.slice(0,1).toUpperCase())}</button>
         </div>
       </div>
-    </div>
-    <div class="app-tabs">
-      <button type="button" class="app-tab ${appView==='browse'||appView==='upload'?'active':''}" onclick="switchAppView('browse')">Browse</button>
-      <button type="button" class="app-tab ${appView==='path'?'active':''}" onclick="switchAppView('path')">Path</button>
-      <button type="button" class="app-tab ${appView==='shop'?'active':''}" onclick="switchAppView('shop')">Shop <span class="tab-coins">🪙 ${s.coins}</span></button>
-      <button type="button" class="app-tab ${appView==='learn'?'active':''}" onclick="switchAppView('learn')">Learn</button>
-      <button type="button" class="app-tab ${appView==='challenges'?'active':''}" onclick="switchAppView('challenges')">Challenges</button>
-      <button type="button" class="app-tab ${appView==='leaderboard'||appView==='groups'?'active':''}" onclick="switchAppView('leaderboard')">Leaderboard</button>
-      ${currentUserIsAdmin() ? `<button type="button" class="app-tab ${appView==='admin'?'active':''}" onclick="switchAppView('admin')">Admin</button>` : ''}
-    </div>
+    </header>
     <div class="app-main">
       <div class="view-enter${viewShouldAnimate?' anim':''}">
       ${activeDishId && (appView==='path' || appView==='browse') ? renderDishFlow(s) : (
         appView==='browse' ? renderBrowse(s) :
         appView==='path' ? renderPath(s) :
         appView==='shop' ? renderShop(s) :
+        appView==='schedule' ? renderSchedule(s) :
         appView==='learn' ? renderLearn(s) :
         appView==='challenges' ? renderChallenges(s) :
         appView==='leaderboard' ? renderLeaderboard(s) :
@@ -2035,12 +2049,24 @@ function renderApp(){
       )}
       </div>
     </div>
+    </section>
     ${renderRewardOverlay()}
     ${socialNotice ? `<div class="social-toast">${esc(socialNotice)}</div>` : ''}
   </div>
   `;
 }
 function renderShop(s){ return `<div class="shop-page"><div class="shop-hero"><div><span class="action-eyebrow">Chyve shop</span><h2>Make it yours.</h2><p>Spend coins on a look you love, a streak flame, or a little recipe celebration.</p></div><div class="coin-wallet"><span>🪙</span><b>${s.coins}</b><small>coins</small></div></div>${renderCosmeticStore(s)}</div>`; }
+function scheduleWeekStart(){const now=new Date();const start=new Date(now.getFullYear(),now.getMonth(),now.getDate());start.setDate(start.getDate()-((start.getDay()+6)%7)+(scheduleWeekOffset*7));return start;}
+function localDateKey(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
+function changeScheduleWeek(delta){scheduleWeekOffset+=delta;render(false);}
+function openScheduledRecipe(id){const s=users[currentUser],dish=findDish(id);if(s&&dish&&!dishCompleted(s,dish.id)&&isDishPathLocked(s,dish)){switchAppView('path');showNotice('That recipe is planned. Unlock it from the path when you are ready.');return;}switchAppView('path');openDish(id);}
+function setScheduledRecipe(dateKey,recipeId){const s=users[currentUser];if(!s)return;ensureProgressState(s);const id=String(recipeId||'');if(id&&findDish(id))s.mealSchedule[dateKey]=id;else delete s.mealSchedule[dateKey];syncUserProfile(currentUser,s);render(false);}
+function renderSchedule(s){
+  ensureProgressState(s);const start=scheduleWeekStart();const days=Array.from({length:7},(_,i)=>{const date=new Date(start);date.setDate(start.getDate()+i);const key=localDateKey(date);return{date,key,recipe:findDish(s.mealSchedule[key])};});
+  const planned=days.filter(d=>d.recipe).length;const end=days[6].date;const range=start.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+end.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  const todayKey=localDateKey(new Date());
+  return `<div class="schedule-page"><header class="schedule-heading"><div><span class="action-eyebrow">Weekly meal plan</span><h2>What’s cooking?</h2><p>Choose a recipe for any day. Your plan is saved to your Chyve account.</p></div><div class="schedule-progress"><b>${planned}/7</b><small>days planned</small></div></header><section class="schedule-calendar"><div class="schedule-calendar-head"><div><span class="schedule-kicker">YOUR WEEK</span><h3>${range}</h3></div><div class="schedule-week-controls"><button type="button" aria-label="Previous week" onclick="changeScheduleWeek(-1)">←</button><button type="button" onclick="scheduleWeekOffset=0;render(false)" ${scheduleWeekOffset===0?'disabled':''}>This week</button><button type="button" aria-label="Next week" onclick="changeScheduleWeek(1)">→</button></div></div><div class="schedule-grid">${days.map(({date,key,recipe})=>`<article class="schedule-day${key===todayKey?' today':''}${recipe?' has-recipe':''}"><div class="schedule-day-head"><span>${date.toLocaleDateString(undefined,{weekday:'short'}).toUpperCase()}</span><b>${date.getDate()}</b></div>${recipe?`<div class="schedule-recipe-photo">${recipe.photo?`<img src="${esc(safePhotoSrc(recipe.photo))}" alt="">`:`<span>${recipe.emoji||'🍽️'}</span>`}</div><div class="schedule-recipe-name">${esc(recipe.name)}</div><small class="schedule-recipe-meta">${esc(recipe.time||'')} · ${recipe.xp||0} XP</small>`:`<div class="schedule-empty"><span>＋</span><small>Choose a dish</small></div>`}<label class="schedule-select-label" for="schedule-${key}">${recipe?'Change recipe':'Plan a recipe'}</label><select id="schedule-${key}" aria-label="Recipe for ${date.toLocaleDateString(undefined,{weekday:'long'})}" onchange="setScheduledRecipe('${key}',this.value)"><option value="">${recipe?'Remove from plan':'Choose a recipe'}</option>${DISHES.map(d=>`<option value="${esc(String(d.id))}" ${recipe&&String(recipe.id)===String(d.id)?'selected':''}>${esc(d.name)}</option>`).join('')}</select>${recipe?`<button type="button" class="schedule-open-recipe" onclick="openScheduledRecipe('${jsStr(String(recipe.id))}')">View recipe <span>↗</span></button>`:''}</article>`).join('')}</div></section><p class="schedule-note">Plans are just for you. Update a day any time as your week changes.</p></div>`;
+}
 
 function renderRewardOverlay(){
   if(!rewardNotifications.length) return '';
@@ -2081,8 +2107,8 @@ function equipCosmetic(id){
   if(!s.ownedCosmetics.includes(id)) return;
   s.equippedCosmetics[item.type] = id;
   if(item.type === 'theme'){
-    s.theme = item.theme;
-    if(window.Theme) window.Theme.apply(item.theme);
+    s.theme = {mode:s.themeMode || 'light',accent:item.theme.accent};
+    if(window.Theme) window.Theme.apply(s.theme);
     activeThemeUser = s.username || currentUser || '';
   }
   if(item.type === 'streak') s.equippedCosmetics.streak = id;
@@ -2103,6 +2129,7 @@ function equippedAvatarStyle(person){
 function renderCosmeticStore(s){
   if(!s || s.username !== currentUser) return '';
   ensureProgressState(s);
+  const activeTheme = COSMETICS.find(c=>c.id===s.equippedCosmetics.theme);
   const groups = [
     ['Themes', 'theme'],
     ['Profile outlines', 'outline'],
@@ -2111,7 +2138,8 @@ function renderCosmeticStore(s){
     ['Streak flames', 'streak']
   ];
   return `<section class="cosmetic-store">
-    <div class="cosmetic-store-head"><div><h3>Make Chyve yours</h3><p>Pick a look, celebrate each recipe, and choose a flame for your streak.</p><p class="coin-earn-note">Earn 20 coins for each recipe, 8 for each challenge vote, and 15 for each challenge entry. Challenge placements add even more.</p></div><div class="coin-wallet"><span>🪙</span><b>${s.coins}</b><small>coins</small></div></div>
+    <div class="cosmetic-store-head"><div><h3>Make Chyve yours</h3><p>Pick a look, celebrate each recipe, and choose a flame for your streak.</p><p class="coin-earn-note">Earn 20 coins for each recipe, 8 for each challenge vote, and 15 for each challenge entry. Challenge placements add even more.</p></div></div>
+    <div class="theme-controls"><div><b>Display mode</b><small>Your chosen theme follows this setting.</small></div><button type="button" role="switch" aria-checked="${s.themeMode==='dark'}" class="theme-switch${s.themeMode==='dark'?' on':''}" onclick="setThemeMode('${s.themeMode==='dark'?'light':'dark'}')"><span class="theme-switch-track"><i></i></span><b>Dark mode</b><small>${s.themeMode==='dark'?'On':'Off'}</small></button><span class="theme-active-label"><i style="--theme-dot:${activeTheme&&activeTheme.color||'#2F9163'}"></i>${esc(activeTheme&&activeTheme.name||'Green')} theme</span></div>
     ${groups.map(([label,type])=>`<h4>${label}</h4><div class="cosmetic-grid">${COSMETICS.filter(item=>item.type===type).map(item=>{
       const owned = s.ownedCosmetics.includes(item.id);
       const equipped = (s.equippedCosmetics[type] || (type==='streak' ? 'streak-default' : '')) === item.id;
@@ -2121,6 +2149,14 @@ function renderCosmeticStore(s){
       return `<article class="cosmetic-card${equipped?' equipped':''}"><span class="cosmetic-icon" style="--cosmetic-color:${item.color||'var(--accent)'}">${item.icon}</span><div><b>${esc(item.name)}</b><small>${esc(item.desc)}</small></div>${action}</article>`;
     }).join('')}</div>`).join('')}
   </section>`;
+}
+function setThemeMode(mode){
+  if(mode!=='light'&&mode!=='dark')return;
+  const s=users[currentUser]; if(!s)return; ensureProgressState(s); s.themeMode=mode;
+  const item=COSMETICS.find(c=>c.id===s.equippedCosmetics.theme&&c.type==='theme');
+  s.theme={mode,accent:item?item.theme.accent:'green'};
+  if(window.Theme)window.Theme.apply(s.theme);
+  activeThemeUser=s.username||currentUser||''; syncUserProfile(currentUser,s); render(false);
 }
 function renderMasteryProgress(person){
   const mastery = person && person.mastery || {};
@@ -2146,6 +2182,7 @@ function switchAppView(v, toolId){
     adminLoad();
   }
   if(v === 'profile') viewingUser = null;
+  if(v === 'shop' || v === 'schedule') { activeDishId = null; dishStage = 'overview'; learnToolFocus = null; }
   if(v === 'groups') activeGroupId = null;
   if(v === 'upload'){
     recipeOutForReview = false;
@@ -2936,9 +2973,7 @@ function renderPath(s){
     dishes.forEach(dish=>{
       const done = s.completed.includes(dish.id);
       const dLvl = dishLevel(dish);
-      const naturallyLocked = dLvl > lvl || (dLvl === lvl && dish.group > activeGroup);
-      const purchased = s.unlockedRecipes.includes(String(dish.id));
-      const locked = naturallyLocked && !purchased;
+      const locked = isDishPathLocked(s,dish);
       const price = recipeCoinPrice(dish);
       const buyable = locked && !dish.community;
       const current = !locked && !done && suggested && suggested.id === dish.id;
@@ -2954,6 +2989,7 @@ function renderPath(s){
   html += `</div>`;
   return html;
 }
+function isDishPathLocked(s,dish){const lvl=unlockedLevelIndex(s);const purchased=(s.unlockedRecipes||[]).includes(String(dish.id));return !purchased&&(dishLevel(dish)>lvl||(dishLevel(dish)===lvl&&dish.group>currentPathGroup(s)));}
 function recipeCoinPrice(dish){ return 35 + dishLevel(dish)*15 + Math.max(0,Number(dish.group)||0)*5; }
 function purchasePathRecipe(id){
   const s=users[currentUser], dish=findDish(id); if(!s||!dish||dish.community)return;
