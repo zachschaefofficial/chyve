@@ -12,7 +12,13 @@
     violet: { name:'Violet', light:'#7351D9', dark:'#A38BFF' },
     rose:   { name:'Rose',   light:'#D1427A', dark:'#FF7FAE' },
     orange: { name:'Orange', light:'#D9691F', dark:'#FF9A55' },
-    mono:   { name:'Mono',   light:'#26251E', dark:'#EDECE6' }
+    mono:   { name:'Mono',   light:'#26251E', dark:'#EDECE6' },
+    red:    { name:'Red', light:'#D64545', dark:'#FF7777' },
+    yellow: { name:'Yellow', light:'#B78B12', dark:'#E7C34E' },
+    teal:   { name:'Teal', light:'#168C85', dark:'#52C9BF' },
+    pink:   { name:'Pink', light:'#D24D9A', dark:'#F47DBB' },
+    indigo: { name:'Indigo', light:'#4C58B8', dark:'#8792FF' },
+    lime:   { name:'Lime', light:'#629B26', dark:'#A5D65B' }
   };
   var DEFAULT = { mode:'light', accent:'green' };
   var MODES = ['light', 'dark', 'auto'];

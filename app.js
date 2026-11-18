@@ -78,21 +78,26 @@ const MASTERY_STEPS = [
   {count:3, title:'Confident'},
   {count:5, title:'Master'}
 ];
+const THEME_OPTIONS = [
+  ['green','Green','#2F9163','🌿'],['blue','Blue','#2F6BDB','🔵'],['violet','Violet','#7351D9','🟣'],['rose','Rose','#D1427A','🌸'],['orange','Orange','#D9691F','🟠'],['mono','Mono','#26251E','⚫'],['red','Red','#D64545','🔴'],['yellow','Yellow','#B78B12','🟡'],['teal','Teal','#168C85','🩵'],['pink','Pink','#D24D9A','💗'],['indigo','Indigo','#4C58B8','🔷'],['lime','Lime','#629B26','🟢']
+];
 const COSMETICS = [
-  {id:'theme-garden', type:'theme', name:'Garden Light', icon:'🌿', cost:0, desc:'A fresh green kitchen.', theme:{mode:'light',accent:'green'}},
-  {id:'theme-midnight', type:'theme', name:'Midnight Kitchen', icon:'🌙', cost:0, desc:'A calm dark theme for late-night cooks.', theme:{mode:'dark',accent:'green'}},
-  {id:'theme-citrus', type:'theme', name:'Citrus Grove', icon:'🍊', cost:60, desc:'Warm light with a bright orange accent.', theme:{mode:'light',accent:'orange'}},
-  {id:'theme-bluehour', type:'theme', name:'Blue Hour', icon:'🌌', cost:90, desc:'Deep dark mode with a cool blue accent.', theme:{mode:'dark',accent:'blue'}},
-  {id:'theme-berry', type:'theme', name:'Berry Season', icon:'🫐', cost:90, desc:'A rich violet colorway.', theme:{mode:'dark',accent:'violet'}},
+  ...THEME_OPTIONS.flatMap(([accent,name,color,icon])=>['light','dark'].map(mode=>({id:'theme-'+mode+'-'+accent,type:'theme',name:`${name} ${mode==='dark'?'Night':'Light'}`,icon,cost:accent==='green'&&mode==='light'?0:accent==='green'&&mode==='dark'?0:45,desc:`${mode==='dark'?'Dark':'Light'} mode with a ${name.toLowerCase()} accent.`,theme:{mode,accent},color}))),
   {id:'outline-chive', type:'outline', name:'Chive Stitch', icon:'🪴', cost:0, desc:'A simple green profile outline.'},
   {id:'outline-sprout', type:'outline', name:'Fresh Sprout', icon:'🌱', cost:0, desc:'A soft mint ring around your profile photo.'},
   {id:'outline-lavender', type:'outline', name:'Lavender Edge', icon:'🪻', cost:0, desc:'A gentle violet profile outline.'},
   {id:'outline-honey', type:'outline', name:'Honey Gold', icon:'✨', cost:50, desc:'A golden ring for your profile photo.'},
   {id:'outline-berry', type:'outline', name:'Berry Glaze', icon:'🍇', cost:70, desc:'A bright berry-colored outline.'},
+  ...[['blue','#6394F0','🔹'],['rose','#E8789F','🌷'],['orange','#E7954B','🟠'],['teal','#53B9AD','🩵'],['violet','#9A7AE2','🟣'],['silver','#A9ADB7','⚪']].map(([name,color,icon])=>({id:'outline-'+name,type:'outline',name:name[0].toUpperCase()+name.slice(1)+' Ring',icon,cost:55,desc:`A clean ${name} ring around your profile photo.`,color})),
   {id:'effect-none', type:'effect', name:'No effect', icon:'○', cost:0, desc:'Keep your profile clean and simple.'},
   {id:'effect-petal', type:'effect', name:'Petal Pop', icon:'🌸', cost:0, desc:'A tiny floral accent on your profile photo.'},
   {id:'effect-glow', type:'effect', name:'Soft Glow', icon:'💡', cost:100, desc:'A warm halo around your profile photo.'},
-  {id:'effect-sparkle', type:'effect', name:'Starlight', icon:'✦', cost:140, desc:'A subtle sparkle for your profile.'}
+  {id:'effect-sparkle', type:'effect', name:'Starlight', icon:'✦', cost:140, desc:'A subtle sparkle for your profile.'},
+  {id:'completion-spark', type:'completion', name:'Spark Shower', icon:'✨', cost:55, desc:'A bright burst of stars when you finish a recipe.'},
+  {id:'completion-petal', type:'completion', name:'Petal Burst', icon:'🌸', cost:75, desc:'Colorful petals float across your completion.'},
+  {id:'completion-flame', type:'completion', name:'Golden Flame', icon:'🔥', cost:95, desc:'A warm flame and glowing embers celebrate each dish.'},
+  ...[['ember','#E85C32','🔥'],['ocean','#4388E8','💧'],['violet','#A36BE8','💜'],['mint','#40AD78','🍃'],['rose','#E45D8D','💗']].map(([name,color,icon])=>({id:'streak-'+name,type:'streak',name:name[0].toUpperCase()+name.slice(1)+' Flame',icon,cost:35,desc:`Set your streak flame to ${name}.`,color})),
+  {id:'streak-default',type:'streak',name:'Classic Flame',icon:'🔥',cost:0,desc:'The original warm streak flame.',color:'#F07832'}
 ];
  
 /* =========================================================
@@ -347,13 +352,19 @@ function ensureProgressState(s){
   s.challengeEntriesCount = Math.max(0, Number(s.challengeEntriesCount) || 0);
   s.challengeEntryVotes = Math.max(0, Number(s.challengeEntryVotes) || 0);
   s.ownedCosmetics = Array.isArray(s.ownedCosmetics) ? s.ownedCosmetics : [];
-  ['theme-garden','theme-midnight','outline-chive','outline-sprout','outline-lavender','effect-none','effect-petal'].forEach(id => {
+  s.unlockedRecipes = Array.isArray(s.unlockedRecipes) ? s.unlockedRecipes : [];
+  const legacyThemes = {'theme-garden':'theme-light-green','theme-midnight':'theme-dark-green','theme-citrus':'theme-light-orange','theme-bluehour':'theme-dark-blue','theme-berry':'theme-dark-violet'};
+  s.ownedCosmetics = s.ownedCosmetics.map(id=>legacyThemes[id]||id);
+  ['theme-light-green','theme-dark-green','outline-chive','outline-sprout','outline-lavender','effect-none','effect-petal','streak-default'].forEach(id => {
     if(!s.ownedCosmetics.includes(id)) s.ownedCosmetics.push(id);
   });
   s.equippedCosmetics = s.equippedCosmetics && typeof s.equippedCosmetics === 'object' ? s.equippedCosmetics : {};
-  if(!s.equippedCosmetics.theme || !s.ownedCosmetics.includes(s.equippedCosmetics.theme)) s.equippedCosmetics.theme = 'theme-garden';
+  if(legacyThemes[s.equippedCosmetics.theme]) s.equippedCosmetics.theme = legacyThemes[s.equippedCosmetics.theme];
+  if(!s.equippedCosmetics.theme || !s.ownedCosmetics.includes(s.equippedCosmetics.theme)) s.equippedCosmetics.theme = 'theme-light-green';
   if(!s.equippedCosmetics.outline || !s.ownedCosmetics.includes(s.equippedCosmetics.outline)) s.equippedCosmetics.outline = 'outline-chive';
   if(!s.equippedCosmetics.effect || !s.ownedCosmetics.includes(s.equippedCosmetics.effect)) s.equippedCosmetics.effect = 'effect-none';
+  if(!s.equippedCosmetics.completion) s.equippedCosmetics.completion = '';
+  if(!s.equippedCosmetics.streak || !s.ownedCosmetics.includes(s.equippedCosmetics.streak)) s.equippedCosmetics.streak = 'streak-default';
 }
 function applyUserTheme(s){
   if(!s) return;
@@ -1031,7 +1042,7 @@ function navSnapshot(){
     profileOrigin: profileOrigin
   };
 }
-const ROUTE_VIEWS = new Set(['path','browse','learn','challenges','leaderboard','groups','upload','profile','admin']);
+const ROUTE_VIEWS = new Set(['path','browse','shop','learn','challenges','leaderboard','groups','upload','profile','admin']);
 function routeForSnapshot(snap){
   if(snap.screen === 'login') return '/login';
   if(snap.screen === 'signup') return '/signup';
@@ -1203,9 +1214,9 @@ function dishNodeHTML(dish, opts){
   const PHOTO_ASPECT = 3/2; // width:height — thumbnails match photo aspect ratio
   const height = Math.round(size / PHOTO_ASPECT);
   const stateClass = opts.locked ? 'locked' : (opts.done ? 'done' : (opts.current ? 'current' : ''));
-  const clickAttr = opts.clickable ? ` onclick="openDish('${jsStr(String(dish.id))}')"` : '';
+  const clickAttr = opts.buyable ? ` onclick="purchasePathRecipe('${jsStr(String(dish.id))}')"` : (opts.clickable ? ` onclick="openDish('${jsStr(String(dish.id))}')"` : '');
   return `<div class="dish-node" style="width:${size}px;">
-    <button ${opts.locked?'disabled':''}${clickAttr} class="dish-circle-btn ${stateClass}" style="width:${size}px;height:${height}px;">
+    <button ${opts.locked&&!opts.buyable?'disabled':''}${clickAttr} class="dish-circle-btn ${stateClass}${opts.buyable?' buyable':''}" style="width:${size}px;height:${height}px;">
       ${dishNodePhoto(dish, height)}
     </button>
     ${opts.done ? `<div class="done-badge">${checkIconSVG()}</div>` : ''}
@@ -1989,11 +2000,11 @@ function renderApp(){
         <div class="brand" style="cursor:pointer;" title="Your profile" onclick="openProfile('${jsStr(currentUser)}')">Chyve</div>
       </div>
       <div class="stat-pills">
-        <div class="pill streak">${s.streak} day${s.streak===1?'':'s'}</div>
+        <div class="pill streak"><span class="streak-flame" style="--streak-color:${(COSMETICS.find(c=>c.id===s.equippedCosmetics.streak)||{}).color||'#F07832'}">${s.streak}</span><span>${s.streak===1?'day':'days'}</span></div>
         <div class="pill level">${levelInfo.name}
           <div class="xp-bar-wrap"><div class="xp-bar-fill" style="width:${pct}%;"></div></div>
         </div>
-        <button type="button" class="pill coin-pill" title="Open your profile and cosmetics" onclick="openProfile('${jsStr(currentUser)}')">🪙 ${s.coins}</button>
+        <button type="button" class="pill coin-pill" title="Open the coin shop" onclick="switchAppView('shop')">🪙 ${s.coins}</button>
         <div class="avatar-menu">
           <button type="button" class="avatar-btn${appView==='profile' && !viewingUser?' active':''}" title="Profile" aria-label="Open profile" onclick="openProfile('${jsStr(currentUser)}')">${s.photo ? `<img src="${s.photo}" alt="">` : esc(currentUser.slice(0,1).toUpperCase())}</button>
         </div>
@@ -2002,6 +2013,7 @@ function renderApp(){
     <div class="app-tabs">
       <button type="button" class="app-tab ${appView==='browse'||appView==='upload'?'active':''}" onclick="switchAppView('browse')">Browse</button>
       <button type="button" class="app-tab ${appView==='path'?'active':''}" onclick="switchAppView('path')">Path</button>
+      <button type="button" class="app-tab ${appView==='shop'?'active':''}" onclick="switchAppView('shop')">Shop <span class="tab-coins">🪙 ${s.coins}</span></button>
       <button type="button" class="app-tab ${appView==='learn'?'active':''}" onclick="switchAppView('learn')">Learn</button>
       <button type="button" class="app-tab ${appView==='challenges'?'active':''}" onclick="switchAppView('challenges')">Challenges</button>
       <button type="button" class="app-tab ${appView==='leaderboard'||appView==='groups'?'active':''}" onclick="switchAppView('leaderboard')">Leaderboard</button>
@@ -2012,6 +2024,7 @@ function renderApp(){
       ${activeDishId && (appView==='path' || appView==='browse') ? renderDishFlow(s) : (
         appView==='browse' ? renderBrowse(s) :
         appView==='path' ? renderPath(s) :
+        appView==='shop' ? renderShop(s) :
         appView==='learn' ? renderLearn(s) :
         appView==='challenges' ? renderChallenges(s) :
         appView==='leaderboard' ? renderLeaderboard(s) :
@@ -2027,6 +2040,7 @@ function renderApp(){
   </div>
   `;
 }
+function renderShop(s){ return `<div class="shop-page"><div class="shop-hero"><div><span class="action-eyebrow">Chyve shop</span><h2>Make it yours.</h2><p>Spend coins on a look you love, a streak flame, or a little recipe celebration.</p></div><div class="coin-wallet"><span>🪙</span><b>${s.coins}</b><small>coins</small></div></div>${renderCosmeticStore(s)}</div>`; }
 
 function renderRewardOverlay(){
   if(!rewardNotifications.length) return '';
@@ -2071,6 +2085,7 @@ function equipCosmetic(id){
     if(window.Theme) window.Theme.apply(item.theme);
     activeThemeUser = s.username || currentUser || '';
   }
+  if(item.type === 'streak') s.equippedCosmetics.streak = id;
   syncUserProfile(currentUser, s);
   showNotice(item.name + ' equipped.');
   render(false);
@@ -2081,23 +2096,29 @@ function equippedAvatarClass(person){
   const effect = COSMETICS.find(c => c.id === equipped.effect);
   return [outline && outline.type === 'outline' ? 'avatar-' + outline.id : '', effect && effect.type === 'effect' ? 'avatar-' + effect.id : ''].filter(Boolean).join(' ');
 }
+function equippedAvatarStyle(person){
+  const item=COSMETICS.find(c=>c.id===(person&&person.equippedCosmetics||{}).outline);
+  return item&&item.color?`--outline-color:${item.color};`:'';
+}
 function renderCosmeticStore(s){
   if(!s || s.username !== currentUser) return '';
   ensureProgressState(s);
   const groups = [
     ['Themes', 'theme'],
     ['Profile outlines', 'outline'],
-    ['Profile effects', 'effect']
+    ['Profile effects', 'effect'],
+    ['Completion effects', 'completion'],
+    ['Streak flames', 'streak']
   ];
   return `<section class="cosmetic-store">
-    <div class="cosmetic-store-head"><div><h3>Style your kitchen</h3><p>Coins unlock profile looks and color themes. A few are free to start.</p><p class="coin-earn-note">Earn 5 coins per recipe, 3 per challenge vote, and 8 per challenge entry. Top 10 challenge finishes earn extra.</p></div><div class="coin-wallet"><span>🪙</span><b>${s.coins}</b><small>coins</small></div></div>
+    <div class="cosmetic-store-head"><div><h3>Make Chyve yours</h3><p>Pick a look, celebrate each recipe, and choose a flame for your streak.</p><p class="coin-earn-note">Earn 20 coins for each recipe, 8 for each challenge vote, and 15 for each challenge entry. Challenge placements add even more.</p></div><div class="coin-wallet"><span>🪙</span><b>${s.coins}</b><small>coins</small></div></div>
     ${groups.map(([label,type])=>`<h4>${label}</h4><div class="cosmetic-grid">${COSMETICS.filter(item=>item.type===type).map(item=>{
       const owned = s.ownedCosmetics.includes(item.id);
-      const equipped = s.equippedCosmetics[type] === item.id;
+      const equipped = (s.equippedCosmetics[type] || (type==='streak' ? 'streak-default' : '')) === item.id;
       const action = equipped ? `<button type="button" class="btn btn-ghost" disabled>Equipped ✓</button>` : owned
         ? `<button type="button" class="btn btn-primary" onclick="equipCosmetic('${item.id}')">Equip</button>`
-        : `<button type="button" class="btn ${s.coins>=item.cost?'btn-gold':'btn-ghost'}" onclick="purchaseCosmetic('${item.id}')" ${s.coins<item.cost?'disabled':''}>${item.cost===0?'Free':'🪙 '+item.cost+' · Unlock'}</button>`;
-      return `<article class="cosmetic-card${equipped?' equipped':''}"><span class="cosmetic-icon">${item.icon}</span><div><b>${esc(item.name)}</b><small>${esc(item.desc)}</small></div>${action}</article>`;
+        : `<button type="button" class="btn ${s.coins>=item.cost?'btn-gold':'btn-ghost'}" onclick="purchaseCosmetic('${item.id}')">${item.cost===0?'Free':'🪙 '+item.cost+' · Unlock'}</button>`;
+      return `<article class="cosmetic-card${equipped?' equipped':''}"><span class="cosmetic-icon" style="--cosmetic-color:${item.color||'var(--accent)'}">${item.icon}</span><div><b>${esc(item.name)}</b><small>${esc(item.desc)}</small></div>${action}</article>`;
     }).join('')}</div>`).join('')}
   </section>`;
 }
@@ -2773,7 +2794,7 @@ function finalizeDish(dishId, photo){
   const prevLevel = levelIndex(s.xp);
   s.completed.push(dish.id);
   awardXP(s, dish.xp);
-  const coinsEarned = awardCoins(s, 5);
+  const coinsEarned = awardCoins(s, 20);
   if(dish.community) s.communityCompletions += 1;
   const newMastery = awardRecipeMastery(s, dish);
   const newLevel = levelIndex(s.xp);
@@ -2849,14 +2870,17 @@ async function retryCompletionPhoto(){
 function renderCompletedPage(s){
   const { dish, leveledUp, newLevelIdx, newBadges } = lastCompletion;
   const finishedPhoto = lastCompletion.photoPreview || dish.photo;
+  const completionEffect = s.equippedCosmetics && s.equippedCosmetics.completion || '';
+  const particle = completionEffect==='completion-petal'?'✿':completionEffect==='completion-flame'?'🔥':'✦';
   return `
-    <div class="completed-page completed-celebration">
+    <div class="completed-page completed-celebration ${completionEffect}" style="--celebration-color:${(COSMETICS.find(c=>c.id===completionEffect)||{}).color||'var(--accent)'}">
+      ${completionEffect ? `<div class="completion-particles" aria-hidden="true">${Array.from({length:18},(_,i)=>`<i style="--i:${i};--x:${(i-9)*24}px">${particle}</i>`).join('')}</div>` : ''}
       <div class="completion-success-mark" aria-hidden="true">✓</div>
       <div class="completion-result-photo"><img src="${esc(safePhotoSrc(finishedPhoto))}" alt="Your finished ${esc(dish.name)}"><span>Made by you</span></div>
       <h2>Recipe completed!</h2>
       <p class="completed-sub">You cooked <b>${dish.name}</b>. That’s a meal well made.</p>
       <div class="completion-xp-card"><span>XP EARNED</span><strong>+${dish.xp}</strong><small>Keep cooking to grow your streak</small></div>
-      <div class="completion-coins-card"><span>🪙</span><b>+${lastCompletion.coinsEarned || 5} coins</b><small>Spend them on themes and profile style.</small></div>
+      <div class="completion-coins-card"><span>🪙</span><b>+${lastCompletion.coinsEarned || 20} coins</b><small>Spend them in the Chyve shop or unlock a recipe ahead.</small></div>
       <div class="completion-streak-card"><span>🔥</span><div><b>${s.streak}-day cooking streak</b><small>Your kitchen showed up today. Keep it going.</small></div></div>
       ${completionsText(dish.id) ? `<p class="completed-sub">${completionsText(dish.id)} so far</p>` : ''}
       ${leveledUp ? `<p class="completed-level">You have grown into a ${LEVELS[newLevelIdx].name}!</p>` : ''}
@@ -2887,7 +2911,7 @@ function renderPath(s){
   let html = `
     <div style="text-align:center;margin-bottom:8px;">
       <h2 style="color:var(--text-light);margin-bottom:8px;">Your path through Chyve</h2>
-      <p style="color:var(--text-dim);">Cook any dish in a row to unlock the next row. One dish from the final row opens the next level.</p>
+      <p style="color:var(--text-dim);">Cook a dish in each row to move ahead, or use coins to unlock a recipe anywhere on the path.</p>
     </div>
     <div class="path-container">
       <div class="path-bg-decor">${pathBackgroundDecorSVG()}</div>
@@ -2912,11 +2936,15 @@ function renderPath(s){
     dishes.forEach(dish=>{
       const done = s.completed.includes(dish.id);
       const dLvl = dishLevel(dish);
-      const locked = dLvl > lvl || (dLvl === lvl && dish.group > activeGroup);
+      const naturallyLocked = dLvl > lvl || (dLvl === lvl && dish.group > activeGroup);
+      const purchased = s.unlockedRecipes.includes(String(dish.id));
+      const locked = naturallyLocked && !purchased;
+      const price = recipeCoinPrice(dish);
+      const buyable = locked && !dish.community;
       const current = !locked && !done && suggested && suggested.id === dish.id;
       html += dishNodeHTML(dish, {
-        size:140, done, locked, current, clickable: !locked,
-        statusText: locked ? 'Locked' : (done ? 'Cooked' : (current ? 'Up next' : '')),
+        size:140, done, locked, current, clickable: !locked, buyable,
+        statusText: buyable ? `🪙 ${price} · Unlock` : (locked ? 'Locked' : (done ? 'Cooked' : (current ? 'Up next' : ''))),
         statusClass: locked ? 'locked' : (done ? 'done' : (current ? 'ready' : ''))
       });
     });
@@ -2925,6 +2953,13 @@ function renderPath(s){
  
   html += `</div>`;
   return html;
+}
+function recipeCoinPrice(dish){ return 35 + dishLevel(dish)*15 + Math.max(0,Number(dish.group)||0)*5; }
+function purchasePathRecipe(id){
+  const s=users[currentUser], dish=findDish(id); if(!s||!dish||dish.community)return;
+  ensureProgressState(s); const key=String(dish.id); if(s.unlockedRecipes.includes(key)){openDish(key);return;}
+  const cost=recipeCoinPrice(dish); if(s.coins<cost){showNotice(`You need ${cost-s.coins} more coins to unlock ${dish.name}.`);switchAppView('shop');return;}
+  s.coins-=cost; s.unlockedRecipes.push(key); syncUserProfile(currentUser,s); showNotice(`${dish.name} unlocked!`); render(false);
 }
  
 function playIconSVG(){
@@ -3156,10 +3191,10 @@ function renderChallenges(s){
         ${currentEntry ? `<div class="challenge-entry-confirm"><span class="challenge-confirm-icon">✓</span><div><strong>You’re in the challenge!</strong><span>${esc(currentEntry.recipeName)} is up for community votes.</span></div></div>` : `
           <div class="challenge-submit">
             <div class="challenge-submit-copy"><span class="challenge-submit-icon" aria-hidden="true">✦</span><div><div class="action-eyebrow">Your turn</div><h3>Enter this week</h3><p>Pick an approved recipe. Your completion photo is used when saved; otherwise we’ll use its recipe photo.</p></div></div>
-            ${challengeOptions.length ? `<div class="challenge-submit-controls"><select id="challenge-recipe-choice" onchange="chooseChallengeRecipe(this.value)"><option value="">Choose a recipe</option>${challengeOptions.map(o=>`<option value="${esc(o.id)}" ${challengeRecipeChoice===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select><button type="button" class="btn btn-primary challenge-submit-btn" onclick="submitWeeklyChallenge()" ${challengeBusy?'disabled':''}>${challengeBusy?'Entering…':'Submit entry · 8 coins'}</button>${selectedRecipe ? `<div class="challenge-selected-recipe"><img src="${esc(safePhotoSrc(selectedRecipe.photoUrl))}" alt=""><span>${selectedRecipe.photoSource === 'completion' ? 'Completion photo' : 'Recipe photo'} ready · ${esc(selectedRecipe.name)}</span></div>` : ''}</div>` : `<div class="challenge-no-options">Publish an approved recipe with a saved photo to enter this week.</div>`}
+            ${challengeOptions.length ? `<div class="challenge-submit-controls"><select id="challenge-recipe-choice" onchange="chooseChallengeRecipe(this.value)"><option value="">Choose a recipe</option>${challengeOptions.map(o=>`<option value="${esc(o.id)}" ${challengeRecipeChoice===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select><button type="button" class="btn btn-primary challenge-submit-btn" onclick="submitWeeklyChallenge()" ${challengeBusy?'disabled':''}>${challengeBusy?'Entering…':'Submit entry · 15 coins'}</button>${selectedRecipe ? `<div class="challenge-selected-recipe"><img src="${esc(safePhotoSrc(selectedRecipe.photoUrl))}" alt=""><span>${selectedRecipe.photoSource === 'completion' ? 'Completion photo' : 'Recipe photo'} ready · ${esc(selectedRecipe.name)}</span></div>` : ''}</div>` : `<div class="challenge-no-options">Publish an approved recipe with a saved photo to enter this week.</div>`}
           </div>
         `}
-        <div class="challenge-vote-heading"><div><div class="action-eyebrow">Community picks</div><h2>Vote for your favorite</h2><p>${voted ? 'Your vote is locked in. Thanks for supporting a fellow cook.' : s.challengeVoteBonusClaimed ? 'Choose one dish to support. Every vote earns 3 coins.' : 'Choose the dish you’d most love to try. Your first vote earns 50 XP, and every vote earns 3 coins.'}</p></div>${voted ? '<span class="vote-cast-mark">✓ Vote cast</span>' : s.challengeVoteBonusClaimed ? '<span class="vote-cast-mark">+3 coins</span>' : '<span class="vote-bonus-pill">+50 XP · +3 coins</span>'}</div>
+        <div class="challenge-vote-heading"><div><div class="action-eyebrow">Community picks</div><h2>Vote for your favorite</h2><p>${voted ? 'Your vote is locked in. Thanks for supporting a fellow cook.' : s.challengeVoteBonusClaimed ? 'Choose one dish to support. Every vote earns 8 coins.' : 'Choose the dish you’d most love to try. Your first vote earns 50 XP, and every vote earns 8 coins.'}</p></div>${voted ? '<span class="vote-cast-mark">✓ Vote cast</span>' : s.challengeVoteBonusClaimed ? '<span class="vote-cast-mark">+8 coins</span>' : '<span class="vote-bonus-pill">+50 XP · +8 coins</span>'}</div>
         <div class="challenge-entry-grid">
           ${ranked.length ? ranked.map((entry,i)=>`<article class="challenge-entry-card${voted && challengeVote.entryId===entry.id?' challenge-voted-card':''}"><div class="challenge-entry-photo"><img src="${esc(safePhotoSrc(entry.photoUrl || entry.photo))}" alt="${esc(entry.recipeName)}" loading="lazy"><span class="challenge-rank">#${i+1}</span>${voted && challengeVote.entryId===entry.id?'<span class="challenge-favorite-mark">Your pick ♥</span>':''}</div><div class="challenge-entry-info"><div class="challenge-entry-title">${esc(entry.recipeName)}</div><div class="challenge-entry-by">by ${esc(entry.username || 'Cook')}</div><div class="challenge-entry-actions"><span class="challenge-vote-count"><b>${Number(entry.votes)||0}</b> vote${Number(entry.votes)===1?'':'s'}</span>${!voted && entry.uid!==s.uid ? `<button type="button" class="btn btn-gold challenge-vote-btn" onclick="voteWeeklyChallenge('${jsStr(entry.id)}')" ${challengeBusy?'disabled':''}>${challengeBusy?'Counting your vote…':'♥  Vote for this dish'}</button>` : entry.uid===s.uid ? '<span class="challenge-own-entry">Your entry</span>' : voted && challengeVote.entryId===entry.id ? '<span class="challenge-voted-entry">Your vote ✓</span>' : ''}</div></div></article>`).join('') : `<div class="empty-illus challenge-empty">No entries yet — be the first to cook up a submission.</div>`}
         </div>
@@ -3181,7 +3216,7 @@ async function submitWeeklyChallenge(){
     const s = users[currentUser];
     ensureProgressState(s);
     s.challengeEntriesCount += 1;
-    const coins = awardCoins(s, 8);
+    const coins = awardCoins(s, 15);
     awardEligibleBadges(s);
     syncUserProfile(currentUser, s);
     challengeNotice = '';
@@ -3200,7 +3235,7 @@ async function voteWeeklyChallenge(entryId){
     const s = users[currentUser];
     ensureProgressState(s);
     s.challengeVotesCount += 1;
-    const coins = awardCoins(s, 3);
+    const coins = awardCoins(s, 8);
     if(result.bonus){
       s.xp = result.xp - 50; s.weeklyXp = result.weeklyXp - 50; s.weekId = currentWeekId();
       awardXP(s, 50); s.challengeVoteBonusClaimed = true;
@@ -3931,7 +3966,7 @@ function renderProfile(s){
         </div>
       </div>
       <div class="profile-header">
-        <div class="profile-avatar ${isSelf?'editable':''} ${equippedAvatarClass(person)}" ${isSelf ? `onclick="document.getElementById('photo-input').click()"` : ''} style="${safePhotoSrc(photo) ? '' : 'background:hsl('+hueFromName(display)+',42%,36%);'}">
+        <div class="profile-avatar ${isSelf?'editable':''} ${equippedAvatarClass(person)}" ${isSelf ? `onclick="document.getElementById('photo-input').click()"` : ''} style="${safePhotoSrc(photo) ? '' : 'background:hsl('+hueFromName(display)+',42%,36%);'}${equippedAvatarStyle(person)}">
           ${safePhotoSrc(photo) ? `<img src="${safePhotoSrc(photo)}" alt="${esc(String(display).slice(0,1).toUpperCase())}">` : esc(String(display).slice(0,1).toUpperCase())}
           ${isSelf ? `<div class="photo-edit">Set photo</div>` : ''}
         </div>
@@ -3968,7 +4003,6 @@ function renderProfile(s){
           </div>`).join('')}
       </div>
       ${renderMasteryProgress(person)}
-      ${isSelf ? renderCosmeticStore(person) : ''}
     </div>
     ${isSelf ? `<div class="profile-footer"><button type="button" class="btn btn-ghost btn-block" onclick="openFeedback()">Send feedback</button><button type="button" class="btn btn-ghost btn-block" onclick="logout()">Log out</button></div>` : ''}
   `;
